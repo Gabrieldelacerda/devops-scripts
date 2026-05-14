@@ -7,6 +7,7 @@ A growing collection of bash scripts automating common DevOps and sysadmin tasks
 | Script | Description |
 |--------|-------------|
 | `disk-check.sh` | Alerts when disk usage exceeds 80% threshold |
+| `docker-cleanup.sh` | Prunes stopped containers, unused images, and dangling volumes |
 
 ## Usage
 
