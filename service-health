@@ -1,5 +1,4 @@
 #!/bin/bash
-# service-health.sh — Check if services are running
 
 SERVICES=("nginx" "docker" "ssh")
 
