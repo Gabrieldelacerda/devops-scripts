@@ -10,6 +10,7 @@ A growing collection of bash scripts automating common DevOps and sysadmin tasks
 | `docker-cleanup.sh` | Prunes stopped containers, unused images, and dangling volumes |
 | `service-health.sh` | Checks if services are running |
 | `connectivity-check.sh` | Checks if hosts are reachable |
+| `log-cleanup.sh` | Deletes log files older than 30 days |
 
 ## Usage
 
