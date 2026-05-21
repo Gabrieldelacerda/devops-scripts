@@ -13,6 +13,7 @@ A growing collection of bash scripts automating common DevOps and sysadmin tasks
 | `log-cleanup.sh` | Deletes log files older than 30 days |
 | `backup.sh` | Creates a compressed backup of a directory with a timestamp |
 | `cpu-check.sh` | Alerts when CPU usage exceeds 80% threshold |
+| `port-check.sh` | Checks if ports are open on a given host |
 
 ## Usage
 
