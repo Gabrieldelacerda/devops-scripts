@@ -17,6 +17,7 @@ A growing collection of bash scripts automating common DevOps and sysadmin tasks
 | `memory-check.sh` | Alerts when memory usage exceeds 80% threshold |
 | `uptime-check.sh` | Shows server uptime and load average |
 | `user-sessions.sh` | Shows active sessions, logged in users and failed login attempts |
+| `ssl-check.sh` | Checks if SSL certificates are expiring soon |
 
 ## Usage
 
