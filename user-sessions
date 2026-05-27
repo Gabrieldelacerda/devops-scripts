@@ -1,0 +1,8 @@
+#user-sessions.sh — Show active user sessions on the server
+
+echo "Active sessions:"
+who
+
+echo ""
+echo "Last logins:"
+last -n 5
