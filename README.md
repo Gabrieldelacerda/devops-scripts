@@ -18,6 +18,7 @@ A growing collection of bash scripts automating common DevOps and sysadmin tasks
 | `uptime-check.sh` | Shows server uptime and load average |
 | `user-sessions.sh` | Shows active sessions, logged in users and failed login attempts |
 | `ssl-check.sh` | Checks if SSL certificates are expiring soon |
+| `process-monitor.sh` | Shows top CPU and memory consuming processes |
 
 ## Usage
 
