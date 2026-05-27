@@ -19,6 +19,7 @@ A growing collection of bash scripts automating common DevOps and sysadmin tasks
 | `user-sessions.sh` | Shows active sessions, logged in users and failed login attempts |
 | `ssl-check.sh` | Checks if SSL certificates are expiring soon |
 | `process-monitor.sh` | Shows top CPU and memory consuming processes |
+| `network-stats.sh` | Shows network interface stats and bandwidth usage |
 
 ## Usage
 
