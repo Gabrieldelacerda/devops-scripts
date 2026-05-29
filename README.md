@@ -20,6 +20,7 @@ A growing collection of bash scripts automating common DevOps and sysadmin tasks
 | `ssl-check.sh` | Checks if SSL certificates are expiring soon |
 | `process-monitor.sh` | Shows top CPU and memory consuming processes |
 | `network-stats.sh` | Shows network interface stats and bandwidth usage |
+| `env-check.sh` | Verifies that required environment variables are set |
 
 ## Usage
 
