@@ -2,7 +2,7 @@
 
 A collection of Bash scripts for automating common Linux, DevOps, and system administration tasks.
 
-The scripts cover basic monitoring, service and network checks, backups, log cleanup, Docker maintenance, and other routine operations.
+The repository includes independent utilities for system monitoring, service and network checks, backups, log cleanup, Docker maintenance, SSL validation, and other routine operational tasks.
 
 ## Scripts
 
@@ -26,8 +26,7 @@ The scripts cover basic monitoring, service and network checks, backups, log cle
 
 ## Usage
 
+Run any script with:
+
 ```bash
 bash scripts/<script-name>.sh
-```
-
-Each script can also be inspected individually for its available parameters and behavior.
