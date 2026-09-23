@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 #uptime-check.sh — Show server uptime and load average
 
 LOAD=$(uptime | awk -F'load average:' '{print $2}')

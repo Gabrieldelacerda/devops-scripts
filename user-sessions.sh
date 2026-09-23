@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 #user-sessions.sh — Show active user sessions on the server
 
 echo "Active sessions:"

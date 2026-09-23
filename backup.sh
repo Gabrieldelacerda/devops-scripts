@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 
 #backup.sh Create a compressed backup of a directory
 

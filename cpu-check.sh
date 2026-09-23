@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 #cpu-check.sh — Alert when CPU usage exceeds threshold
 
 THRESHOLD=80

@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 
 #connectivity-check.sh — Check if hosts are reachable
 

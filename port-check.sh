@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 #port-check.sh Check if ports are open on a host
 
 HOST="localhost"
