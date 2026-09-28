@@ -1,6 +1,10 @@
 #!/bin/bash
 
-SERVICES=("nginx" "docker" "ssh")
+if [ "$#" -gt 0 ]; then
+  SERVICES=("$@")
+else
+  SERVICES=("nginx" "docker" "ssh")
+fi
 
 for SERVICE in "${SERVICES[@]}"; do
   if systemctl is-active --quiet "$SERVICE"; then
