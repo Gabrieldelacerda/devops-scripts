@@ -8,8 +8,16 @@ fi
 
 for SERVICE in "${SERVICES[@]}"; do
   if systemctl is-active --quiet "$SERVICE"; then
-    echo "$SERVICE is running"
+    STATUS="running"
   else
-    echo "$SERVICE is NOT running"
+    STATUS="NOT running"
   fi
+
+  if systemctl is-enabled --quiet "$SERVICE" 2>/dev/null; then
+    BOOT_STATUS="enabled"
+  else
+    BOOT_STATUS="disabled"
+  fi
+
+  echo "$SERVICE is $STATUS (boot: $BOOT_STATUS)"
 done
