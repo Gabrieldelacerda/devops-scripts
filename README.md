@@ -29,4 +29,4 @@ The repository includes independent utilities for system monitoring, service and
 Run any script with:
 
 ```bash
-bash scripts/<script-name>.sh
+bash <script-name>.sh
