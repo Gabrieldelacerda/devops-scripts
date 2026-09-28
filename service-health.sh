@@ -13,8 +13,12 @@ for SERVICE in "${SERVICES[@]}"; do
     STATUS="NOT running"
   fi
 
+  SOCKET="${SERVICE%.service}.socket"
+
   if systemctl is-enabled --quiet "$SERVICE" 2>/dev/null; then
     BOOT_STATUS="enabled"
+  elif systemctl is-enabled --quiet "$SOCKET" 2>/dev/null; then
+    BOOT_STATUS="socket-activated"
   else
     BOOT_STATUS="disabled"
   fi
