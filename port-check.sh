@@ -1,13 +1,22 @@
 #!/usr/bin/env bash
-#port-check.sh Check if ports are open on a host
 
-HOST="localhost"
-PORTS=(22 80 443 3306)
+HOST="${1:-localhost}"
+
+if [ "$#" -gt 1 ]; then
+  PORTS=("${@:2}")
+else
+  PORTS=(22 80 443 3306)
+fi
 
 for PORT in "${PORTS[@]}"; do
+  if ! [[ "$PORT" =~ ^[0-9]+$ ]] || [ "$PORT" -lt 1 ] || [ "$PORT" -gt 65535 ]; then
+    echo "[INVALID] Port must be between 1 and 65535: $PORT"
+    continue
+  fi
+
   if nc -zw2 "$HOST" "$PORT" 2>/dev/null; then
-    echo "Port $PORT is open"
+    echo "$HOST:$PORT is open"
   else
-    echo "Port $PORT is closed"
+    echo "$HOST:$PORT is closed"
   fi
 done
