@@ -1,6 +1,11 @@
 #!/bin/bash
 
-DOMAINS=("google.com" "github.com")
+if [ "$#" -gt 0 ]; then
+  DOMAINS=("$@")
+else
+  DOMAINS=("google.com" "github.com")
+fi
+
 THRESHOLD=30
 
 for DOMAIN in "${DOMAINS[@]}"; do
