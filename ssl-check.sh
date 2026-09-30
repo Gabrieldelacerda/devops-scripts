@@ -6,7 +6,7 @@ else
   DOMAINS=("google.com" "github.com")
 fi
 
-THRESHOLD=30
+THRESHOLD=${THRESHOLD:-30}
 
 for DOMAIN in "${DOMAINS[@]}"; do
   CERT_INFO=$(echo | openssl s_client \
