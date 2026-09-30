@@ -8,6 +8,11 @@ fi
 
 THRESHOLD=${THRESHOLD:-30}
 
+if ! [[ "$THRESHOLD" =~ ^[0-9]+$ ]]; then
+  echo "[ERROR] THRESHOLD must be a non-negative integer"
+  exit 1
+fi
+
 for DOMAIN in "${DOMAINS[@]}"; do
   CERT_INFO=$(echo | openssl s_client \
     -connect "$DOMAIN:443" \
