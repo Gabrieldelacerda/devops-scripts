@@ -2,8 +2,8 @@
 
 #backup.sh Create a compressed backup of a directory
 
-SOURCE="/var/www"
-DEST="/tmp/backups"
+SOURCE=${1:-/var/www}
+DEST=${2:-/tmp/backups}
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 
 if [ ! -d "$SOURCE" ]; then
