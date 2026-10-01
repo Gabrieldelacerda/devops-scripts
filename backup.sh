@@ -11,6 +11,16 @@ if [ ! -d "$SOURCE" ]; then
   exit 1
 fi
 
-mkdir -p "$DEST"
-tar -czf "$DEST/backup_$TIMESTAMP.tar.gz" "$SOURCE"
-echo "Backup saved to $DEST/backup_$TIMESTAMP.tar.gz"
+if ! mkdir -p "$DEST"; then
+  echo "[ERROR] Could not create destination directory: $DEST"
+  exit 1
+fi
+
+BACKUP_FILE="$DEST/backup_$TIMESTAMP.tar.gz"
+
+if tar -czf "$BACKUP_FILE" "$SOURCE"; then
+  echo "Backup saved to $BACKUP_FILE"
+else
+  echo "[ERROR] Backup failed for $SOURCE"
+  exit 1
+fi
