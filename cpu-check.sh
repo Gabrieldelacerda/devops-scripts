@@ -1,12 +1,19 @@
 #!/usr/bin/env bash
 #cpu-check.sh — Alert when CPU usage exceeds threshold
 
-THRESHOLD=80
+THRESHOLD=${THRESHOLD:-80}
 
-CPU=$(top -bn1 | grep "Cpu(s)" | awk '{print $2}' | cut -d'.' -f1)
+if ! [[ "$THRESHOLD" =~ ^[0-9]+$ ]] || [ "$THRESHOLD" -gt 100 ]; then
+  echo "[ERROR] THRESHOLD must be an integer between 0 and 100"
+  exit 1
+fi
+
+CPU=$(top -bn1 | awk '/Cpu\(s\)/ {print int(100 - $8)}')
 
 if [ "$CPU" -ge "$THRESHOLD" ]; then
   echo "[ALERT] CPU usage is at ${CPU}%"
+  exit 1
 else
-  echo "CPU usage is at ${CPU}%"
+  echo "[ OK ] CPU usage is at ${CPU}%"
+  exit 0
 fi
