@@ -1,6 +1,11 @@
 #!/bin/bash
 
-REQUIRED=("HOME" "PATH" "USER" "SHELL")
+if [ "$#" -gt 0 ]; then
+  REQUIRED=("$@")
+else
+  REQUIRED=("HOME" "PATH" "USER" "SHELL")
+fi
+
 MISSING=0
 
 for VAR in "${REQUIRED[@]}"; do
