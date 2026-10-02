@@ -6,23 +6,22 @@ The repository includes independent utilities for system monitoring, service and
 
 ## Scripts
 
-| Script                  | Description                                                          |
-| ----------------------- | -------------------------------------------------------------------- |
-| `disk-check.sh`         | Alerts when disk usage exceeds an 80% threshold                      |
-| `docker-cleanup.sh`     | Removes stopped containers and unused Docker resources               |
-| `service-health.sh`     | Checks whether specified services are running                        |
-| `connectivity-check.sh` | Checks whether hosts are reachable                                   |
-| `log-cleanup.sh`        | Removes log files older than 30 days                                 |
-| `backup.sh`             | Creates timestamped compressed backups of a directory                |
-| `cpu-check.sh`          | Alerts when CPU usage exceeds an 80% threshold                       |
-| `port-check.sh`         | Checks whether ports are open on a given host                        |
-| `memory-check.sh`       | Alerts when memory usage exceeds an 80% threshold                    |
-| `uptime-check.sh`       | Displays system uptime and load average                              |
-| `user-sessions.sh`      | Displays active sessions, logged-in users, and failed login attempts |
-| `ssl-check.sh`          | Checks whether SSL certificates are approaching expiration           |
-| `process-monitor.sh`    | Displays the processes consuming the most CPU and memory             |
-| `network-stats.sh`      | Displays network interface statistics and bandwidth usage            |
-| `env-check.sh`          | Verifies that required environment variables are set                 |
+| Script                  | Description                                                                  |
+| ----------------------- | ---------------------------------------------------------------------------- |
+| `disk-check.sh`         | Checks disk usage against a configurable threshold                           |
+| `docker-cleanup.sh`     | Removes stopped containers and unused Docker resources safely                |
+| `service-health.sh`     | Checks whether specified services are running                                |
+| `connectivity-check.sh` | Checks whether specified hosts are reachable                                 |
+| `log-cleanup.sh`        | Removes old log files from a configurable directory                          |
+| `backup.sh`             | Creates timestamped compressed backups of a specified directory              |
+| `cpu-check.sh`          | Checks CPU usage against a configurable threshold                            |
+| `port-check.sh`         | Checks whether specified ports are open on a host                            |
+| `uptime-check.sh`       | Displays uptime and evaluates the 1-minute load average                       |
+| `user-sessions.sh`      | Displays active sessions and available login history information             |
+| `ssl-check.sh`          | Checks SSL certificate expiration for specified domains                      |
+| `process-monitor.sh`    | Displays the processes consuming the most CPU and memory                     |
+| `network-stats.sh`      | Displays network interfaces, traffic counters, and listening sockets         |
+| `env-check.sh`          | Verifies that required environment variables are set                         |
 
 ## Usage
 
@@ -30,3 +29,4 @@ Run any script with:
 
 ```bash
 bash <script-name>.sh
+```
