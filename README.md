@@ -22,6 +22,7 @@ The repository includes independent utilities for system monitoring, service and
 | `process-monitor.sh`    | Displays the processes consuming the most CPU and memory                     |
 | `network-stats.sh`      | Displays network interfaces, traffic counters, and listening sockets         |
 | `env-check.sh`          | Verifies that required environment variables are set                         |
+| `validate-scripts.sh`   | Runs Bash syntax checks and ShellCheck across all scripts                     |
 
 ## Usage
 
@@ -30,3 +31,13 @@ Run any script with:
 ```bash
 bash <script-name>.sh
 ```
+
+## Validation
+
+Validate all Bash scripts locally with:
+
+```bash
+bash validate-scripts.sh
+```
+
+The same validation runs automatically through GitHub Actions on pushes and pull requests.
