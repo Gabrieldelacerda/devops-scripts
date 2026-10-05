@@ -1,4 +1,5 @@
 #!/bin/bash
+
 if ! command -v docker >/dev/null 2>&1; then
   echo "[ERROR] Docker is not installed"
   exit 1
@@ -17,12 +18,21 @@ if [[ ! "$REPLY" =~ ^[Yy]$ ]]; then
 fi
 
 echo "Removing stopped containers..."
-docker container prune -f
+if ! docker container prune -f; then
+  echo "[ERROR] Failed to remove stopped containers"
+  exit 1
+fi
 
 echo "Removing unused images..."
-docker image prune -f
+if ! docker image prune -f; then
+  echo "[ERROR] Failed to remove unused images"
+  exit 1
+fi
 
 echo "Removing dangling volumes..."
-docker volume prune -f
+if ! docker volume prune -f; then
+  echo "[ERROR] Failed to remove dangling volumes"
+  exit 1
+fi
 
-echo "Done!!"
+echo "[ OK ] Docker cleanup completed successfully"
