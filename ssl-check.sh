@@ -13,6 +13,8 @@ if ! [[ "$THRESHOLD" =~ ^[0-9]+$ ]]; then
   exit 1
 fi
 
+FAILED=0
+
 for DOMAIN in "${DOMAINS[@]}"; do
   CERT_INFO=$(echo | openssl s_client \
     -connect "$DOMAIN:443" \
@@ -21,15 +23,27 @@ for DOMAIN in "${DOMAINS[@]}"; do
 
   if [ -z "$CERT_INFO" ]; then
     echo "[ERROR] Could not retrieve certificate for $DOMAIN"
+    FAILED=1
     continue
   fi
 
   EXPIRY=${CERT_INFO#notAfter=}
-  DAYS=$(( ( $(date -d "$EXPIRY" +%s) - $(date +%s) ) / 86400 ))
+  EXPIRY_EPOCH=$(date -d "$EXPIRY" +%s 2>/dev/null)
+
+  if [ -z "$EXPIRY_EPOCH" ]; then
+    echo "[ERROR] Could not parse certificate expiry for $DOMAIN"
+    FAILED=1
+    continue
+  fi
+
+  DAYS=$(( (EXPIRY_EPOCH - $(date +%s)) / 86400 ))
 
   if [ "$DAYS" -le "$THRESHOLD" ]; then
     echo "[ALERT] $DOMAIN certificate expires in $DAYS days"
+    FAILED=1
   else
-    echo "$DOMAIN certificate is valid for $DAYS days"
+    echo "[ OK ] $DOMAIN certificate is valid for $DAYS days"
   fi
 done
+
+exit "$FAILED"
