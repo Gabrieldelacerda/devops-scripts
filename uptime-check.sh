@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# uptime-check.sh — Show server uptime and load average
+# uptime-check.sh — Show server uptime and evaluate load average
 
-LOAD=$(uptime | awk -F'load average:' '{print $2}')
-LOAD_1=$(awk '{print $1}' /proc/loadavg)
+read -r LOAD_1 LOAD_5 LOAD_15 _ < /proc/loadavg
+
 CPUS=$(nproc)
 THRESHOLD=${LOAD_THRESHOLD:-$CPUS}
 
 echo "Uptime: $(uptime -p)"
-echo "Load average: $LOAD"
+echo "Load average: $LOAD_1, $LOAD_5, $LOAD_15"
 echo "Logical CPUs: $CPUS"
 
 if ! [[ "$THRESHOLD" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
