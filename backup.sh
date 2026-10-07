@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-#backup.sh Create a compressed backup of a directory
+# backup.sh — Create a compressed backup of a directory
 
 SOURCE=${1:-/var/www}
 DEST=${2:-/tmp/backups}
@@ -19,8 +19,9 @@ fi
 BACKUP_FILE="$DEST/backup_$TIMESTAMP.tar.gz"
 
 if tar -czf "$BACKUP_FILE" "$SOURCE"; then
-  echo "Backup saved to $BACKUP_FILE"
+  echo "[ OK ] Backup saved to $BACKUP_FILE"
 else
   echo "[ERROR] Backup failed for $SOURCE"
+  rm -f "$BACKUP_FILE"
   exit 1
 fi
