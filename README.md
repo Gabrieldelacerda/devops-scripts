@@ -20,7 +20,7 @@ The repository includes independent utilities for system monitoring, service and
 | `user-sessions.sh`      | Displays active sessions and available login history information             |
 | `ssl-check.sh`          | Checks SSL certificate expiration for specified domains                      |
 | `process-monitor.sh`    | Displays the processes consuming the most CPU and memory                     |
-| `network-stats.sh`      | Displays network interfaces, traffic counters, and listening sockets         |
+| `network-stats.sh`      | Displays network interfaces, traffic counters, errors, drops, and listening sockets |
 | `env-check.sh`          | Verifies that required environment variables are set                         |
 | `validate-scripts.sh`   | Runs Bash syntax checks and ShellCheck across all scripts                     |
 
@@ -39,5 +39,7 @@ Validate all Bash scripts locally with:
 ```bash
 bash validate-scripts.sh
 ```
+
+Validation checks Bash syntax with `bash -n` and static analysis with `shellcheck`, helping catch issues before changes are merged.
 
 The same validation runs automatically through GitHub Actions on pushes and pull requests.
