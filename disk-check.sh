@@ -9,7 +9,16 @@ if ! [[ "$THRESHOLD" =~ ^[0-9]+$ ]] || [ "$THRESHOLD" -gt 100 ]; then
   exit 1
 fi
 
+if ! DF_OUTPUT=$(df -h --output=pcent,target); then
+  echo "[ERROR] Failed to retrieve disk usage"
+  exit 1
+fi
+
 while read -r USAGE MOUNT; do
+  if [ "$USAGE" = "Use%" ]; then
+    continue
+  fi
+
   PCT=${USAGE%%%}
 
   if [ "$PCT" -ge "$THRESHOLD" ]; then
@@ -18,6 +27,6 @@ while read -r USAGE MOUNT; do
   else
     echo "[ OK ]  $MOUNT is at ${USAGE} usage"
   fi
-done < <(df -h --output=pcent,target | tail -n +2)
+done <<< "$DF_OUTPUT"
 
 exit "$ALERT"
