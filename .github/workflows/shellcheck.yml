@@ -1,4 +1,4 @@
-name: ShellCheck
+name: Bash Checks
 
 on:
   push:
@@ -18,3 +18,6 @@ jobs:
 
       - name: Validate Bash scripts
         run: bash validate-scripts.sh
+
+      - name: Run automated tests
+        run: bash tests/run-tests.sh

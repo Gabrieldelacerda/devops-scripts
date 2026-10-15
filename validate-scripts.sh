@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# validate-scripts.sh — Validate all Bash scripts in the repository
+# Validate all Bash scripts, including automated tests
 
 if ! command -v shellcheck >/dev/null 2>&1; then
   echo "[ERROR] ShellCheck is required"
@@ -9,7 +9,7 @@ fi
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd) || exit 1
 
 shopt -s nullglob
-SCRIPTS=("$SCRIPT_DIR"/*.sh)
+SCRIPTS=("$SCRIPT_DIR"/*.sh "$SCRIPT_DIR"/tests/*.sh)
 shopt -u nullglob
 
 if [ "${#SCRIPTS[@]}" -eq 0 ]; then
