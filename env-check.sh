@@ -1,3 +1,4 @@
+
 #!/bin/bash
 
 if [ "$#" -gt 0 ]; then
@@ -13,7 +14,7 @@ for VAR in "${REQUIRED[@]}"; do
     echo "[MISSING] $VAR is not set"
     MISSING=$((MISSING + 1))
   else
-    echo "$VAR is set to: ${!VAR}"
+    echo "[ OK ] $VAR is set"
   fi
 done
 
