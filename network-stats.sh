@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 for CMD in ip ss awk; do
   if ! command -v "$CMD" >/dev/null 2>&1; then
@@ -8,11 +8,18 @@ for CMD in ip ss awk; do
 done
 
 echo "Network interfaces:"
-ip -br addr
+
+if ! IP_OUTPUT=$(ip -br addr); then
+  echo "[ERROR] Failed to retrieve network interfaces"
+  exit 1
+fi
+
+printf '%s\n' "$IP_OUTPUT"
 
 echo ""
 echo "Network statistics:"
-awk 'NR>2 {
+
+if ! STATS_OUTPUT=$(awk 'NR>2 {
   gsub(":", "", $1)
   print $1,
         "RX:", $2, "bytes",
@@ -21,8 +28,19 @@ awk 'NR>2 {
         "| TX:", $10, "bytes",
         "errors:", $12,
         "drops:", $13
-}' /proc/net/dev
+}' /proc/net/dev); then
+  echo "[ERROR] Failed to retrieve network statistics"
+  exit 1
+fi
+
+printf '%s\n' "$STATS_OUTPUT"
 
 echo ""
 echo "Listening sockets:"
-ss -tuln
+
+if ! SOCKET_OUTPUT=$(ss -tuln); then
+  echo "[ERROR] Failed to retrieve listening sockets"
+  exit 1
+fi
+
+printf '%s\n' "$SOCKET_OUTPUT"
