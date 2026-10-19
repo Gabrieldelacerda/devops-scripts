@@ -1,89 +1,117 @@
+
 # devops-scripts
 
 A collection of Bash scripts for automating common Linux, DevOps, and system administration tasks.
 
-The repository includes independent utilities for system monitoring, service and network checks, backups, log cleanup, Docker maintenance, SSL validation, and other routine operational tasks.
+The project focuses on practical infrastructure operations, automation reliability, error handling, and automated testing.
 
 ## Scripts
 
 | Script | Description |
 |---|---|
-| `disk-check.sh` | Checks disk usage against a configurable threshold |
-| `docker-cleanup.sh` | Removes stopped containers and unused Docker resources safely |
-| `service-health.sh` | Checks whether specified services are running |
-| `connectivity-check.sh` | Checks whether specified hosts respond to ICMP |
-| `log-cleanup.sh` | Removes old log files from a configurable directory |
-| `backup.sh` | Creates timestamped compressed backups of a specified directory |
-| `cpu-check.sh` | Checks CPU usage against a configurable threshold |
-| `port-check.sh` | Checks whether specified TCP ports are reachable |
-| `uptime-check.sh` | Displays uptime and evaluates the 1-minute load average |
-| `user-sessions.sh` | Displays active sessions and available login history information |
-| `ssl-check.sh` | Checks SSL certificate expiration for specified domains |
-| `process-monitor.sh` | Displays the processes consuming the most CPU and memory |
-| `network-stats.sh` | Displays network interfaces, traffic counters, errors, drops, and listening sockets |
-| `env-check.sh` | Verifies that required environment variables are set |
-| `validate-scripts.sh` | Runs Bash syntax checks and ShellCheck across project scripts |
+| `disk-check.sh` | Monitors disk usage against a configurable threshold |
+| `docker-cleanup.sh` | Cleans up unused Docker resources with confirmation |
+| `service-health.sh` | Checks the status of systemd services |
+| `connectivity-check.sh` | Tests ICMP connectivity to specified hosts |
+| `log-cleanup.sh` | Removes old log files, with an optional dry-run mode |
+| `backup.sh` | Creates timestamped compressed directory backups |
+| `cpu-check.sh` | Monitors CPU usage against a configurable threshold |
+| `port-check.sh` | Checks TCP port connectivity |
+| `uptime-check.sh` | Reports system uptime and evaluates load average |
+| `user-sessions.sh` | Displays active sessions and login history |
+| `ssl-check.sh` | Checks SSL certificate expiration |
+| `process-monitor.sh` | Displays processes with the highest CPU and memory usage |
+| `network-stats.sh` | Reports interfaces, traffic statistics, and listening sockets |
+| `env-check.sh` | Verifies required environment variables without exposing their values |
+| `validate-scripts.sh` | Performs Bash syntax checks and ShellCheck validation |
 
 ## Usage
 
-Run any script with:
+Run a script with:
 
 ```bash
 bash <script-name>.sh
 ```
 
-Additional examples are available in [USAGE-EXAMPLES.md](USAGE-EXAMPLES.md).
+For additional examples, see [USAGE-EXAMPLES.md](USAGE-EXAMPLES.md).
 
-## Validation
+### Log Cleanup — Dry Run
 
-Validate Bash syntax and run ShellCheck locally:
+Preview which log files would be removed:
 
 ```bash
-bash validate-scripts.sh
+bash log-cleanup.sh /path/to/logs 7 --dry-run
 ```
 
-These checks help identify syntax errors and potential scripting issues before changes are merged.
+The dry-run mode lists matching files without deleting them.
+
+To perform the cleanup:
+
+```bash
+bash log-cleanup.sh /path/to/logs 7
+```
 
 ## Automated Testing
 
-The repository includes automated functional tests covering:
+The repository includes **15 automated test suites** covering:
 
 - Environment variable validation
-- Disk and CPU monitoring
-- Load average monitoring
-- TCP port connectivity
-- ICMP connectivity
+- Disk, CPU, and load average monitoring
+- TCP and ICMP connectivity
 - Systemd service health
 - SSL certificate expiration
-- Backup creation and failure handling
+- Backup creation and error handling
+- Docker cleanup and cancellation
+- Log cleanup, including dry-run behavior
+- Network monitoring and command failures
+- Process monitoring and input validation
+- User session monitoring
+- Test runner behavior and failure reporting
 
-Run the complete test suite with:
+Tests cover successful operations, invalid inputs, failure scenarios, and exit codes.
+
+Mocked commands are used where appropriate to simulate failures safely and produce reproducible results.
+
+Run all tests:
 
 ```bash
 bash tests/run-tests.sh
 ```
 
-The test suite verifies successful operations, invalid inputs, failure handling, and exit codes. Where appropriate, mocked commands are used to simulate failures safely and produce reproducible results.
+Latest locally verified result:
 
-## CI/CD — GitHub Actions
+```text
+Results: 15 passed, 0 failed
+```
 
-The GitHub Actions workflow automatically runs on pushes and pull requests. It can also be triggered manually.
+## Validation and CI/CD
 
-The pipeline performs two main checks:
+Validate Bash syntax and run ShellCheck:
 
-1. **Static validation:** Bash syntax checks and ShellCheck.
-2. **Functional testing:** Automated tests covering operational scripts.
+```bash
+bash validate-scripts.sh
+```
 
-If validation or any functional test fails, the workflow reports a failure.
+GitHub Actions automatically runs validation and functional tests on pushes and pull requests. The workflow also supports manual execution.
 
-### Pipeline Execution
+The pipeline uses read-only repository permissions and reports failures when validation or tests do not pass.
+
+### GitHub Actions Pipeline
 
 ![Successful GitHub Actions pipeline](docs/screenshots/github-actions-pipeline.png)
 
 ### Automated Test Results
 
-The latest documented test run completed with **9 test suites passed and 0 failed**.
+The screenshot below documents an earlier successful run with 9 passing suites. The project has since expanded to 15 automated test suites.
 
 ![Automated test results](docs/screenshots/automated-tests-results.png)
 
-These results demonstrate automated validation and testing integrated into the repository's development workflow.
+## Project Goals
+
+This project is part of my hands-on Cloud/DevOps learning journey, with an emphasis on:
+
+- Linux infrastructure operations
+- Bash automation and troubleshooting
+- Reliable scripting and failure handling
+- Automated testing and CI/CD
+- Maintainable operational tooling
