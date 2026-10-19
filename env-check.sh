@@ -1,4 +1,5 @@
-#!/bin/bash
+
+#!/usr/bin/env bash
 
 if [ "$#" -gt 0 ]; then
   REQUIRED=("$@")
@@ -9,7 +10,7 @@ fi
 MISSING=0
 
 for VAR in "${REQUIRED[@]}"; do
-  if [ -z "${!VAR}" ]; then
+  if [ -z "${!VAR:-}" ]; then
     echo "[MISSING] $VAR is not set"
     MISSING=$((MISSING + 1))
   else
