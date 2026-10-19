@@ -1,4 +1,3 @@
-
 #!/usr/bin/env bash
 # Test environment variable validation without exposing values.
 
