@@ -3,7 +3,6 @@ set -euo pipefail
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPT="$ROOT_DIR/backup.sh"
-
 TEST_DIR="$(mktemp -d)"
 trap 'rm -rf -- "$TEST_DIR"' EXIT
 
@@ -17,7 +16,6 @@ DEST="$TEST_DIR/backup archives"
 RESTORE="$TEST_DIR/restored"
 
 mkdir -p "$SOURCE/nested directory" "$RESTORE"
-
 printf 'Test backup content\n' > "$SOURCE/example.txt"
 printf 'First line\nSecond line\n' > "$SOURCE/nested directory/config file.txt"
 printf 'Hidden file content\n' > "$SOURCE/.hidden"
@@ -30,8 +28,7 @@ fi
 [[ "$OUTPUT" == *"[ OK ] Backup saved to"* ]] ||
   fail "Backup success message was not displayed"
 
-BACKUP_FILE=$(find "$DEST" -maxdepth 1 -type f \
-  -name 'backup_*.tar.gz' -print -quit)
+BACKUP_FILE=$(find "$DEST" -maxdepth 1 -type f -name 'backup_*.tar.gz' -print -quit)
 
 [[ -n "$BACKUP_FILE" && -f "$BACKUP_FILE" ]] ||
   fail "Backup archive was not created"
@@ -44,12 +41,7 @@ tar -xzf "$BACKUP_FILE" -C "$RESTORE" >/dev/null 2>&1 ||
 
 RESTORED_SOURCE="$RESTORE/${SOURCE#/}"
 
-for FILE in \
-  "example.txt" \
-  "nested directory/config file.txt" \
-  ".hidden" \
-  "data.bin"; do
-
+for FILE in "example.txt" "nested directory/config file.txt" ".hidden" "data.bin"; do
   [[ -f "$RESTORED_SOURCE/$FILE" ]] ||
     fail "Restored file is missing: $FILE"
 
@@ -82,6 +74,24 @@ fi
 [[ "$OUTPUT" == *"[ERROR] Could not create destination directory:"* ]] ||
   fail "Expected destination creation error"
 
+MOCK_MKTEMP="$TEST_DIR/mock-mktemp"
+mkdir -p "$MOCK_MKTEMP"
+
+cat > "$MOCK_MKTEMP/mktemp" <<'EOF'
+#!/usr/bin/env bash
+exit 1
+EOF
+
+chmod +x "$MOCK_MKTEMP/mktemp"
+
+if OUTPUT=$(PATH="$MOCK_MKTEMP:$PATH" \
+  bash "$SCRIPT" "$SOURCE" "$TEST_DIR/reservation-failed" 2>&1); then
+  fail "Failure to create a unique backup file should return an error"
+fi
+
+[[ "$OUTPUT" == *"[ERROR] Could not create a unique backup file"* ]] ||
+  fail "Expected unique filename creation error"
+
 MOCK_TAR="$TEST_DIR/mock-tar"
 mkdir -p "$MOCK_TAR"
 
@@ -107,5 +117,56 @@ if find "$FAILED_DEST" -maxdepth 1 -type f \
   -name 'backup_*.tar.gz' | grep -q .; then
   fail "Incomplete backup was not removed"
 fi
+
+MOCK_DATE="$TEST_DIR/mock-date"
+mkdir -p "$MOCK_DATE"
+
+cat > "$MOCK_DATE/date" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' '20261020_120000'
+EOF
+
+chmod +x "$MOCK_DATE/date"
+
+COLLISION_DEST="$TEST_DIR/same-second-backups"
+printf 'first version\n' > "$SOURCE/example.txt"
+
+if ! OUTPUT=$(PATH="$MOCK_DATE:$PATH" \
+  bash "$SCRIPT" "$SOURCE" "$COLLISION_DEST" 2>&1); then
+  fail "First backup with fixed timestamp should succeed"
+fi
+
+FIRST_BACKUP=$(find "$COLLISION_DEST" -maxdepth 1 -type f \
+  -name 'backup_*.tar.gz' -print -quit)
+
+[[ -n "$FIRST_BACKUP" ]] ||
+  fail "First archive was not created"
+
+printf 'second version\n' > "$SOURCE/example.txt"
+
+if ! OUTPUT=$(PATH="$MOCK_DATE:$PATH" \
+  bash "$SCRIPT" "$SOURCE" "$COLLISION_DEST" 2>&1); then
+  fail "Second backup with fixed timestamp should succeed"
+fi
+
+SECOND_BACKUP=$(find "$COLLISION_DEST" -maxdepth 1 -type f \
+  -name 'backup_*.tar.gz' ! -path "$FIRST_BACKUP" -print -quit)
+
+[[ -n "$SECOND_BACKUP" ]] ||
+  fail "Second backup replaced the first archive"
+
+FIRST_CONTENT=$(tar -xOzf "$FIRST_BACKUP" \
+  "${SOURCE#/}/example.txt" 2>/dev/null) ||
+  fail "Could not read the first backup"
+
+SECOND_CONTENT=$(tar -xOzf "$SECOND_BACKUP" \
+  "${SOURCE#/}/example.txt" 2>/dev/null) ||
+  fail "Could not read the second backup"
+
+[[ "$FIRST_CONTENT" == 'first version' ]] ||
+  fail "The first archive was overwritten"
+
+[[ "$SECOND_CONTENT" == 'second version' ]] ||
+  fail "The second archive has incorrect contents"
 
 echo "[ OK ] backup.sh tests passed"

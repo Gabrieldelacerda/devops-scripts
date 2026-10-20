@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-# backup.sh — Create a compressed backup of a directory
-
 SOURCE=${1:-/var/www}
 DEST=${2:-/tmp/backups}
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
@@ -16,12 +14,15 @@ if ! mkdir -p "$DEST"; then
   exit 1
 fi
 
-BACKUP_FILE="$DEST/backup_$TIMESTAMP.tar.gz"
+if ! BACKUP_FILE=$(mktemp "$DEST/backup_${TIMESTAMP}_XXXXXX.tar.gz"); then
+  echo "[ERROR] Could not create a unique backup file in $DEST"
+  exit 1
+fi
 
 if tar -czf "$BACKUP_FILE" "$SOURCE"; then
   echo "[ OK ] Backup saved to $BACKUP_FILE"
 else
   echo "[ERROR] Backup failed for $SOURCE"
-  rm -f "$BACKUP_FILE"
+  rm -f -- "$BACKUP_FILE"
   exit 1
 fi
