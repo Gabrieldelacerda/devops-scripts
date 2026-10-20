@@ -1,71 +1,89 @@
 #!/usr/bin/env bash
-# Test backup creation and failure handling
+set -euo pipefail
 
-ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd) || exit 1
+ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPT="$ROOT_DIR/backup.sh"
 
-TEST_DIR=$(mktemp -d) || exit 1
+TEST_DIR="$(mktemp -d)"
 trap 'rm -rf -- "$TEST_DIR"' EXIT
 
-SOURCE="$TEST_DIR/source"
-DEST="$TEST_DIR/backups"
+fail() {
+  echo "[FAIL] $1"
+  exit 1
+}
 
-mkdir -p "$SOURCE" || exit 1
+SOURCE="$TEST_DIR/source directory"
+DEST="$TEST_DIR/backup archives"
+RESTORE="$TEST_DIR/restored"
+
+mkdir -p "$SOURCE/nested directory" "$RESTORE"
+
 printf 'Test backup content\n' > "$SOURCE/example.txt"
+printf 'First line\nSecond line\n' > "$SOURCE/nested directory/config file.txt"
+printf 'Hidden file content\n' > "$SOURCE/.hidden"
+printf '\000\001\377\000' > "$SOURCE/data.bin"
 
-# Test 1: Successful backup
 if ! OUTPUT=$(bash "$SCRIPT" "$SOURCE" "$DEST" 2>&1); then
-  echo "[FAIL] Backup should succeed"
-  exit 1
+  fail "Backup should succeed"
 fi
 
-BACKUP_FILE=$(find "$DEST" -maxdepth 1 -type f -name 'backup_*.tar.gz' -print -quit)
+[[ "$OUTPUT" == *"[ OK ] Backup saved to"* ]] ||
+  fail "Backup success message was not displayed"
 
-if [[ -z "$BACKUP_FILE" ]] || ! tar -tzf "$BACKUP_FILE" >/dev/null 2>&1; then
-  echo "[FAIL] Valid backup archive was not created"
-  exit 1
-fi
+BACKUP_FILE=$(find "$DEST" -maxdepth 1 -type f \
+  -name 'backup_*.tar.gz' -print -quit)
 
-if ! tar -tzf "$BACKUP_FILE" | grep -q '/example.txt$'; then
-  echo "[FAIL] Backup archive is missing the source file"
-  exit 1
-fi
+[[ -n "$BACKUP_FILE" && -f "$BACKUP_FILE" ]] ||
+  fail "Backup archive was not created"
 
-# Test 2: Missing source directory
+tar -tzf "$BACKUP_FILE" >/dev/null 2>&1 ||
+  fail "Backup archive is invalid"
+
+tar -xzf "$BACKUP_FILE" -C "$RESTORE" >/dev/null 2>&1 ||
+  fail "Backup archive could not be restored"
+
+RESTORED_SOURCE="$RESTORE/${SOURCE#/}"
+
+for FILE in \
+  "example.txt" \
+  "nested directory/config file.txt" \
+  ".hidden" \
+  "data.bin"; do
+
+  [[ -f "$RESTORED_SOURCE/$FILE" ]] ||
+    fail "Restored file is missing: $FILE"
+
+  cmp -s -- "$SOURCE/$FILE" "$RESTORED_SOURCE/$FILE" ||
+    fail "Restored file differs from original: $FILE"
+done
+
 if OUTPUT=$(bash "$SCRIPT" "$TEST_DIR/missing" "$DEST" 2>&1); then
-  echo "[FAIL] Missing source should return failure"
-  exit 1
+  fail "Missing source should return failure"
 fi
 
-if [[ "$OUTPUT" != *"[ERROR] Source directory does not exist:"* ]]; then
-  echo "[FAIL] Expected missing source error"
-  exit 1
-fi
+[[ "$OUTPUT" == *"[ERROR] Source directory does not exist:"* ]] ||
+  fail "Expected missing source error"
 
-# Test 3: Destination creation failure
 MOCK_MKDIR="$TEST_DIR/mock-mkdir"
-mkdir -p "$MOCK_MKDIR" || exit 1
+mkdir -p "$MOCK_MKDIR"
 
 cat > "$MOCK_MKDIR/mkdir" <<'EOF'
 #!/usr/bin/env bash
 exit 1
 EOF
 
-chmod +x "$MOCK_MKDIR/mkdir" || exit 1
+chmod +x "$MOCK_MKDIR/mkdir"
 
-if OUTPUT=$(PATH="$MOCK_MKDIR:$PATH" bash "$SCRIPT" "$SOURCE" "$TEST_DIR/blocked" 2>&1); then
-  echo "[FAIL] Destination creation failure should return failure"
-  exit 1
+if OUTPUT=$(PATH="$MOCK_MKDIR:$PATH" \
+  bash "$SCRIPT" "$SOURCE" "$TEST_DIR/blocked" 2>&1); then
+  fail "Destination creation failure should return failure"
 fi
 
-if [[ "$OUTPUT" != *"[ERROR] Could not create destination directory:"* ]]; then
-  echo "[FAIL] Expected destination creation error"
-  exit 1
-fi
+[[ "$OUTPUT" == *"[ERROR] Could not create destination directory:"* ]] ||
+  fail "Expected destination creation error"
 
-# Test 4: Failed backup must remove incomplete archive
 MOCK_TAR="$TEST_DIR/mock-tar"
-mkdir -p "$MOCK_TAR" || exit 1
+mkdir -p "$MOCK_TAR"
 
 cat > "$MOCK_TAR/tar" <<'EOF'
 #!/usr/bin/env bash
@@ -73,23 +91,21 @@ printf 'incomplete backup' > "$2"
 exit 1
 EOF
 
-chmod +x "$MOCK_TAR/tar" || exit 1
+chmod +x "$MOCK_TAR/tar"
 
 FAILED_DEST="$TEST_DIR/failed-backups"
 
-if OUTPUT=$(PATH="$MOCK_TAR:$PATH" bash "$SCRIPT" "$SOURCE" "$FAILED_DEST" 2>&1); then
-  echo "[FAIL] Failed tar operation should return failure"
-  exit 1
+if OUTPUT=$(PATH="$MOCK_TAR:$PATH" \
+  bash "$SCRIPT" "$SOURCE" "$FAILED_DEST" 2>&1); then
+  fail "Failed tar operation should return failure"
 fi
 
-if [[ "$OUTPUT" != *"[ERROR] Backup failed for"* ]]; then
-  echo "[FAIL] Expected backup failure message"
-  exit 1
-fi
+[[ "$OUTPUT" == *"[ERROR] Backup failed for"* ]] ||
+  fail "Expected backup failure message"
 
-if find "$FAILED_DEST" -maxdepth 1 -type f -name 'backup_*.tar.gz' | grep -q .; then
-  echo "[FAIL] Incomplete backup was not removed"
-  exit 1
+if find "$FAILED_DEST" -maxdepth 1 -type f \
+  -name 'backup_*.tar.gz' | grep -q .; then
+  fail "Incomplete backup was not removed"
 fi
 
 echo "[ OK ] backup.sh tests passed"
