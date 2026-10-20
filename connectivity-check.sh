@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-# connectivity-check.sh — Check if hosts respond to ICMP
-
 if ! command -v ping >/dev/null 2>&1; then
   echo "[ERROR] Required command not found: ping"
   exit 1
@@ -16,10 +14,26 @@ fi
 FAILED=0
 
 for HOST in "${HOSTS[@]}"; do
-  if ping -c 1 -W 2 "$HOST" &>/dev/null; then
+  if [[ -z "$HOST" || "$HOST" == -* || "$HOST" =~ [[:space:]] ]]; then
+    echo "[INVALID] Invalid host: $HOST"
+    FAILED=1
+    continue
+  fi
+
+  if PING_OUTPUT=$(ping -c 1 -W 2 "$HOST" 2>&1); then
     echo "[REACHABLE] $HOST"
   else
-    echo "[UNREACHABLE] $HOST"
+    STATUS=$?
+
+    if [ "$STATUS" -eq 1 ]; then
+      echo "[UNREACHABLE] $HOST"
+    else
+      echo "[ERROR] Ping failed for $HOST (exit code: $STATUS)"
+      if [[ -n "$PING_OUTPUT" ]]; then
+        printf '[DETAIL] %s\n' "$PING_OUTPUT"
+      fi
+    fi
+
     FAILED=1
   fi
 done
