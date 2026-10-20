@@ -20,7 +20,6 @@ mkdir -p \
   "$WORK_DIR/syntax-error" \
   "$WORK_DIR/lint-error"
 
-# Mock ShellCheck to simulate successful and failed checks.
 cat > "$WORK_DIR/mock-bin/shellcheck" <<'MOCK'
 #!/usr/bin/env bash
 
@@ -33,7 +32,6 @@ MOCK
 
 chmod +x "$WORK_DIR/mock-bin/shellcheck"
 
-# Test 1: Detect missing ShellCheck.
 if OUTPUT=$(PATH="$WORK_DIR/no-shellcheck" "$BASH_BIN" "$VALIDATOR" 2>&1); then
   fail "Validation should fail when ShellCheck is unavailable"
 fi
@@ -41,28 +39,22 @@ fi
 [[ "$OUTPUT" == *"[ERROR] ShellCheck is required"* ]] ||
   fail "Missing ShellCheck message was not displayed"
 
-# Test 2: Accept valid Bash scripts.
 cp "$VALIDATOR" "$WORK_DIR/passing/validate-scripts.sh"
-
-printf '#!/usr/bin/env bash\necho ok\n' \
-  > "$WORK_DIR/passing/working.sh"
+printf '#!/usr/bin/env bash\necho ok\n' > "$WORK_DIR/passing/working.sh"
 
 if ! OUTPUT=$(PATH="$WORK_DIR/mock-bin:$PATH" \
-    "$BASH_BIN" "$WORK_DIR/passing/validate-scripts.sh" 2>&1); then
+  "$BASH_BIN" "$WORK_DIR/passing/validate-scripts.sh" 2>&1); then
   fail "Valid scripts should pass validation"
 fi
 
 [[ "$OUTPUT" == *"[ OK ] All 2 scripts passed validation"* ]] ||
   fail "Success count is incorrect"
 
-# Test 3: Reject invalid Bash syntax.
 cp "$VALIDATOR" "$WORK_DIR/syntax-error/validate-scripts.sh"
-
-printf '#!/usr/bin/env bash\nif then\n' \
-  > "$WORK_DIR/syntax-error/broken.sh"
+printf '#!/usr/bin/env bash\nif then\n' > "$WORK_DIR/syntax-error/broken.sh"
 
 if OUTPUT=$(PATH="$WORK_DIR/mock-bin:$PATH" \
-    "$BASH_BIN" "$WORK_DIR/syntax-error/validate-scripts.sh" 2>&1); then
+  "$BASH_BIN" "$WORK_DIR/syntax-error/validate-scripts.sh" 2>&1); then
   fail "Invalid Bash syntax should fail validation"
 fi
 
@@ -72,14 +64,11 @@ fi
 [[ "$OUTPUT" == *"Validation failed: 1 of 2 scripts failed"* ]] ||
   fail "Syntax failure count is incorrect"
 
-# Test 4: Detect ShellCheck failures.
 cp "$VALIDATOR" "$WORK_DIR/lint-error/validate-scripts.sh"
-
-printf '#!/usr/bin/env bash\necho ok\n' \
-  > "$WORK_DIR/lint-error/lint-fail.sh"
+printf '#!/usr/bin/env bash\necho ok\n' > "$WORK_DIR/lint-error/lint-fail.sh"
 
 if OUTPUT=$(PATH="$WORK_DIR/mock-bin:$PATH" \
-    "$BASH_BIN" "$WORK_DIR/lint-error/validate-scripts.sh" 2>&1); then
+  "$BASH_BIN" "$WORK_DIR/lint-error/validate-scripts.sh" 2>&1); then
   fail "ShellCheck failures should fail validation"
 fi
 
@@ -88,5 +77,34 @@ fi
 
 [[ "$OUTPUT" == *"Validation failed: 1 of 2 scripts failed"* ]] ||
   fail "ShellCheck failure count is incorrect"
+
+if ! OUTPUT=$(PATH="$WORK_DIR/mock-bin:$PATH" \
+  "$BASH_BIN" "$WORK_DIR/syntax-error/validate-scripts.sh" \
+  "$WORK_DIR/syntax-error/validate-scripts.sh" 2>&1); then
+  fail "Targeted validation should ignore unrelated broken files"
+fi
+
+[[ "$OUTPUT" == *"[ OK ] All 1 scripts passed validation"* ]] ||
+  fail "Targeted validation should report one checked script"
+
+if OUTPUT=$(PATH="$WORK_DIR/mock-bin:$PATH" \
+  "$BASH_BIN" "$WORK_DIR/passing/validate-scripts.sh" \
+  "$WORK_DIR/passing/missing.sh" 2>&1); then
+  fail "Missing script path should return an error"
+fi
+
+[[ "$OUTPUT" == *"[ERROR] Script not found:"* ]] ||
+  fail "Missing script path was not reported"
+
+printf 'not a shell script\n' > "$WORK_DIR/passing/notes.txt"
+
+if OUTPUT=$(PATH="$WORK_DIR/mock-bin:$PATH" \
+  "$BASH_BIN" "$WORK_DIR/passing/validate-scripts.sh" \
+  "$WORK_DIR/passing/notes.txt" 2>&1); then
+  fail "Non-shell files should be rejected"
+fi
+
+[[ "$OUTPUT" == *"[ERROR] Expected a .sh file:"* ]] ||
+  fail "Invalid file extension was not reported"
 
 echo "[ OK ] validate-scripts.sh tests passed"

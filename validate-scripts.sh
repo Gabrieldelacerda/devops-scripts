@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# Validate all Bash scripts, including automated tests
 
 if ! command -v shellcheck >/dev/null 2>&1; then
   echo "[ERROR] ShellCheck is required"
@@ -8,9 +7,27 @@ fi
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd) || exit 1
 
-shopt -s nullglob
-SCRIPTS=("$SCRIPT_DIR"/*.sh "$SCRIPT_DIR"/tests/*.sh)
-shopt -u nullglob
+if [ "$#" -gt 0 ]; then
+  SCRIPTS=()
+
+  for SCRIPT in "$@"; do
+    if [ ! -f "$SCRIPT" ]; then
+      echo "[ERROR] Script not found: $SCRIPT"
+      exit 1
+    fi
+
+    if [[ "$SCRIPT" != *.sh ]]; then
+      echo "[ERROR] Expected a .sh file: $SCRIPT"
+      exit 1
+    fi
+
+    SCRIPTS+=("$SCRIPT")
+  done
+else
+  shopt -s nullglob
+  SCRIPTS=("$SCRIPT_DIR"/*.sh "$SCRIPT_DIR"/tests/*.sh)
+  shopt -u nullglob
+fi
 
 if [ "${#SCRIPTS[@]}" -eq 0 ]; then
   echo "[ERROR] No Bash scripts found"
