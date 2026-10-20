@@ -3,7 +3,7 @@
 
 A collection of Bash scripts for automating common Linux, DevOps, and system administration tasks.
 
-The project focuses on practical infrastructure operations, automation reliability, error handling, and automated testing.
+The project focuses on infrastructure operations, reliable automation, troubleshooting, error handling, and automated testing.
 
 ## Scripts
 
@@ -12,9 +12,9 @@ The project focuses on practical infrastructure operations, automation reliabili
 | `disk-check.sh` | Monitors disk usage against a configurable threshold |
 | `docker-cleanup.sh` | Cleans up unused Docker resources with confirmation |
 | `service-health.sh` | Checks the status of systemd services |
-| `connectivity-check.sh` | Tests ICMP connectivity to specified hosts |
+| `connectivity-check.sh` | Checks ICMP connectivity and reports operational errors |
 | `log-cleanup.sh` | Removes old log files, with an optional dry-run mode |
-| `backup.sh` | Creates timestamped compressed directory backups |
+| `backup.sh` | Creates compressed backups with unique filenames |
 | `cpu-check.sh` | Monitors CPU usage against a configurable threshold |
 | `port-check.sh` | Checks TCP port connectivity |
 | `uptime-check.sh` | Reports system uptime and evaluates load average |
@@ -51,48 +51,75 @@ To perform the cleanup:
 bash log-cleanup.sh /path/to/logs 7
 ```
 
+### Backups
+
+Create a compressed backup:
+
+```bash
+bash backup.sh /path/to/source /path/to/backups
+```
+
+Backup filenames combine a timestamp with a unique suffix, preventing files created within the same second from overwriting one another.
+
+### Connectivity Checks
+
+Check ICMP connectivity to specific hosts:
+
+```bash
+bash connectivity-check.sh github.com 1.1.1.1
+```
+
+The script distinguishes unreachable hosts, invalid inputs, and operational errors reported by `ping`.
+
 ## Automated Testing
 
-The repository includes **15 automated test suites** covering:
+The repository includes **16 automated test suites** covering:
 
 - Environment variable validation
 - Disk, CPU, and load average monitoring
 - TCP and ICMP connectivity
 - Systemd service health
 - SSL certificate expiration
-- Backup creation and error handling
+- Backup creation, restoration, and error handling
 - Docker cleanup and cancellation
 - Log cleanup, including dry-run behavior
 - Network monitoring and command failures
 - Process monitoring and input validation
 - User session monitoring
 - Test runner behavior and failure reporting
+- Bash validator behavior and error detection
 
-Tests cover successful operations, invalid inputs, failure scenarios, and exit codes.
+Tests cover successful operations, invalid inputs, boundary conditions, failure scenarios, and exit codes.
 
 Mocked commands are used where appropriate to simulate failures safely and produce reproducible results.
 
-Run all tests:
+Run the complete test suite:
 
 ```bash
 bash tests/run-tests.sh
 ```
 
-Latest locally verified result:
+Successful execution:
 
 ```text
-Results: 15 passed, 0 failed
+Results: 16 passed, 0 failed
 ```
 
 ## Validation and CI/CD
 
-Validate Bash syntax and run ShellCheck:
+Validate Bash syntax and run ShellCheck across the repository:
 
 ```bash
 bash validate-scripts.sh
 ```
 
-GitHub Actions automatically runs validation and functional tests on pushes and pull requests. The workflow also supports manual execution.
+Validate specific scripts:
+
+```bash
+bash validate-scripts.sh backup.sh network-stats.sh
+```
+
+GitHub Actions automatically runs static validation and functional tests on pushes and pull requests. The workflow also supports manual execution.
 
 The pipeline uses read-only repository permissions and reports failures when validation or tests do not pass.
 
@@ -102,7 +129,7 @@ The pipeline uses read-only repository permissions and reports failures when val
 
 ### Automated Test Results
 
-The screenshot below documents an earlier successful run with 9 passing suites. The project has since expanded to 15 automated test suites.
+The screenshot below documents an earlier successful run with 9 passing suites. The project has since expanded to 16 automated test suites.
 
 ![Automated test results](docs/screenshots/automated-tests-results.png)
 
