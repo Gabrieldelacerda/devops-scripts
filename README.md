@@ -1,4 +1,3 @@
-
 # devops-scripts
 
 A collection of Bash scripts for automating common Linux, DevOps, and system administration tasks.
@@ -11,18 +10,18 @@ The project focuses on infrastructure operations, reliable automation, troublesh
 |---|---|
 | `disk-check.sh` | Monitors disk usage against a configurable threshold |
 | `docker-cleanup.sh` | Cleans up unused Docker resources with confirmation |
-| `service-health.sh` | Checks the status of systemd services |
+| `service-health.sh` | Checks systemd services, boot configuration, and command failures |
 | `connectivity-check.sh` | Checks ICMP connectivity and reports operational errors |
 | `log-cleanup.sh` | Removes old log files, with an optional dry-run mode |
 | `backup.sh` | Creates compressed backups with unique filenames |
 | `cpu-check.sh` | Monitors CPU usage against a configurable threshold |
 | `port-check.sh` | Checks TCP port connectivity |
 | `uptime-check.sh` | Reports system uptime and evaluates load average |
-| `user-sessions.sh` | Displays active sessions and login history |
+| `user-sessions.sh` | Displays active sessions and login history with error handling |
 | `ssl-check.sh` | Checks SSL certificate expiration |
-| `process-monitor.sh` | Displays processes with the highest CPU and memory usage |
+| `process-monitor.sh` | Displays top CPU and memory processes and detects collection failures |
 | `network-stats.sh` | Reports interfaces, traffic statistics, and listening sockets |
-| `env-check.sh` | Verifies required environment variables without exposing their values |
+| `env-check.sh` | Validates required environment variables without exposing their values |
 | `validate-scripts.sh` | Performs Bash syntax checks and ShellCheck validation |
 
 ## Usage
@@ -75,17 +74,17 @@ The script distinguishes unreachable hosts, invalid inputs, and operational erro
 
 The repository includes **16 automated test suites** covering:
 
-- Environment variable validation
+- Environment variable validation, including invalid variable names
 - Disk, CPU, and load average monitoring
 - TCP and ICMP connectivity
-- Systemd service health
+- Systemd service health, missing services, and command failures
 - SSL certificate expiration
 - Backup creation, restoration, and error handling
 - Docker cleanup and cancellation
 - Log cleanup, including dry-run behavior
 - Network monitoring and command failures
-- Process monitoring and input validation
-- User session monitoring
+- Process monitoring, input validation, and collection failures
+- User session monitoring and command failure handling
 - Test runner behavior and failure reporting
 - Bash validator behavior and error detection
 
