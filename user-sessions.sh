@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# user-sessions.sh — Show active user sessions on the server
 
 LIMIT=${1:-5}
 
@@ -16,16 +15,24 @@ for CMD in who w; do
 done
 
 echo "Active sessions:"
-who
+if ! who; then
+  echo "[ERROR] Failed to retrieve active sessions (who)" >&2
+  exit 1
+fi
 
 echo ""
 echo "Logged in users:"
-w
+if ! w; then
+  echo "[ERROR] Failed to retrieve logged-in users (w)" >&2
+  exit 1
+fi
 
 echo ""
 echo "Last $LIMIT logins:"
 if command -v last >/dev/null 2>&1; then
-  last -n "$LIMIT"
+  if ! last -n "$LIMIT"; then
+    echo "[WARN] Failed to retrieve login history (last)" >&2
+  fi
 else
   echo "[WARN] 'last' command is not available"
 fi
@@ -33,7 +40,11 @@ fi
 echo ""
 echo "Last $LIMIT failed login attempts:"
 if command -v lastb >/dev/null 2>&1; then
-  lastb -n "$LIMIT"
+  if ! lastb -n "$LIMIT"; then
+    echo "[WARN] Failed to retrieve failed login attempts (lastb)" >&2
+  fi
 else
   echo "[WARN] 'lastb' command is not available"
 fi
+
+exit 0

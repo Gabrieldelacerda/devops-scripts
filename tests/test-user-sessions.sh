@@ -18,16 +18,22 @@ fail() {
   exit 1
 }
 
-# Mock session commands without accessing real login records.
 for CMD in who w last lastb; do
   cat > "$MOCK_DIR/$CMD" <<'EOF'
 #!/bin/sh
-printf 'mock-%s %s\n' "${0##*/}" "$*"
+
+NAME=${0##*/}
+
+if [ "${MOCK_FAIL_COMMAND:-}" = "$NAME" ]; then
+  echo "Simulated command failure" >&2
+  exit 2
+fi
+
+printf 'mock-%s %s\n' "$NAME" "$*"
 EOF
   chmod +x "$MOCK_DIR/$CMD"
 done
 
-# Test 1: Valid limit and expected commands.
 OUTPUT=$(PATH="$MOCK_DIR:$PATH" "$BASH_BIN" "$SCRIPT" 3) ||
   fail "Valid session check should succeed"
 
@@ -43,21 +49,18 @@ OUTPUT=$(PATH="$MOCK_DIR:$PATH" "$BASH_BIN" "$SCRIPT" 3) ||
 [[ "$OUTPUT" == *"mock-lastb -n 3"* ]] ||
   fail "Failed login history limit was not applied"
 
-# Test 2: Invalid limits must fail.
 for INVALID in 0 -1 abc 1.5; do
   if PATH="$MOCK_DIR:$PATH" "$BASH_BIN" "$SCRIPT" "$INVALID" >/dev/null 2>&1; then
     fail "Invalid limit '$INVALID' should fail"
   fi
 done
 
-# Test 3: Default limit should be 5.
 OUTPUT=$(PATH="$MOCK_DIR:$PATH" "$BASH_BIN" "$SCRIPT") ||
   fail "Default limit should succeed"
 
 [[ "$OUTPUT" == *"mock-last -n 5"* ]] ||
   fail "Default login history limit should be 5"
 
-# Test 4: Missing optional commands should produce warnings.
 cp "$MOCK_DIR/who" "$MOCK_DIR/w" "$LIMITED_DIR/"
 
 OUTPUT=$(PATH="$LIMITED_DIR" "$BASH_BIN" "$SCRIPT" 2) ||
@@ -68,5 +71,36 @@ OUTPUT=$(PATH="$LIMITED_DIR" "$BASH_BIN" "$SCRIPT" 2) ||
 
 [[ "$OUTPUT" == *"'lastb' command is not available"* ]] ||
   fail "Missing lastb command should produce a warning"
+
+for CMD in who w; do
+  if OUTPUT=$(PATH="$MOCK_DIR:$PATH" MOCK_FAIL_COMMAND="$CMD" "$BASH_BIN" "$SCRIPT" 2 2>&1); then
+    fail "Failed required command '$CMD' should return an error"
+  fi
+
+  if [[ "$CMD" == "who" ]]; then
+    EXPECTED="[ERROR] Failed to retrieve active sessions (who)"
+  else
+    EXPECTED="[ERROR] Failed to retrieve logged-in users (w)"
+  fi
+
+  [[ "$OUTPUT" == *"$EXPECTED"* ]] ||
+    fail "Failed required command '$CMD' should explain the error"
+done
+
+for CMD in last lastb; do
+  OUTPUT=$(PATH="$MOCK_DIR:$PATH" MOCK_FAIL_COMMAND="$CMD" "$BASH_BIN" "$SCRIPT" 2 2>&1) ||
+    fail "Failed optional command '$CMD' should not stop the script"
+
+  if [[ "$CMD" == "last" ]]; then
+    EXPECTED="[WARN] Failed to retrieve login history (last)"
+    [[ "$OUTPUT" == *"mock-lastb -n 2"* ]] ||
+      fail "Failed last command should not prevent checking lastb"
+  else
+    EXPECTED="[WARN] Failed to retrieve failed login attempts (lastb)"
+  fi
+
+  [[ "$OUTPUT" == *"$EXPECTED"* ]] ||
+    fail "Failed optional command '$CMD' should produce a warning"
+done
 
 echo "[ OK ] user-sessions.sh tests passed"
