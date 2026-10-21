@@ -6,19 +6,21 @@ else
   REQUIRED=("HOME" "PATH" "USER" "SHELL")
 fi
 
-MISSING=0
+FAILED=0
 
 for VAR in "${REQUIRED[@]}"; do
+  if ! [[ "$VAR" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]]; then
+    echo "[ERROR] Invalid variable name: $VAR" >&2
+    FAILED=1
+    continue
+  fi
+
   if [ -z "${!VAR:-}" ]; then
     echo "[MISSING] $VAR is not set"
-    MISSING=$((MISSING + 1))
+    FAILED=1
   else
     echo "[ OK ] $VAR is set"
   fi
 done
 
-if [ "$MISSING" -gt 0 ]; then
-  exit 1
-fi
-
-exit 0
+exit "$FAILED"
