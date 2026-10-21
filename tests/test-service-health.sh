@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# test-service-health.sh — Test systemd service monitoring
 
 ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd) || exit 1
 SCRIPT="$ROOT_DIR/service-health.sh"
@@ -15,6 +14,10 @@ case "$1" in
     case "$2" in
       active|inactive|socket) echo "loaded" ;;
       missing) echo "not-found" ;;
+      unavailable)
+        echo "Failed to connect to bus" >&2
+        exit 1
+        ;;
       *) exit 1 ;;
     esac
     ;;
@@ -56,5 +59,6 @@ check_service active 0 "active is running (boot: enabled)" || exit 1
 check_service inactive 1 "inactive is NOT running (boot: disabled)" || exit 1
 check_service missing 1 "[ERROR] missing was not found" || exit 1
 check_service socket 0 "socket is running (boot: socket-activated)" || exit 1
+check_service unavailable 1 "[ERROR] Could not inspect unavailable" || exit 1
 
 echo "[ OK ] service-health.sh tests passed"

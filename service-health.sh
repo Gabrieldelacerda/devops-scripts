@@ -9,7 +9,11 @@ fi
 FAILED=0
 
 for SERVICE in "${SERVICES[@]}"; do
-  LOAD_STATE=$(systemctl show "$SERVICE" -p LoadState --value 2>/dev/null)
+  if ! LOAD_STATE=$(systemctl show "$SERVICE" -p LoadState --value 2>/dev/null); then
+    echo "[ERROR] Could not inspect $SERVICE"
+    FAILED=1
+    continue
+  fi
 
   if [ "$LOAD_STATE" = "not-found" ] || [ -z "$LOAD_STATE" ]; then
     echo "[ERROR] $SERVICE was not found"
