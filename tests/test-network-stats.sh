@@ -17,13 +17,16 @@ fail() {
   exit 1
 }
 
-# Mock network commands with configurable failures.
 cat > "$MOCK_DIR/ip" <<'EOF'
 #!/bin/sh
 [ "$#" -eq 2 ] && [ "$1" = '-br' ] && [ "$2" = 'addr' ] || exit 2
 
 if [ "${MOCK_FAIL_CMD:-}" = "ip" ]; then
   exit 1
+fi
+
+if [ "${MOCK_EMPTY_CMD:-}" = "ip" ]; then
+  exit 0
 fi
 
 printf '%s\n' 'eth0 UP 192.0.2.10/24'
@@ -35,6 +38,10 @@ cat > "$MOCK_DIR/awk" <<'EOF'
 
 if [ "${MOCK_FAIL_CMD:-}" = "awk" ]; then
   exit 1
+fi
+
+if [ "${MOCK_EMPTY_CMD:-}" = "awk" ]; then
+  exit 0
 fi
 
 printf '%s\n' \
@@ -49,6 +56,10 @@ if [ "${MOCK_FAIL_CMD:-}" = "ss" ]; then
   exit 1
 fi
 
+if [ "${MOCK_EMPTY_CMD:-}" = "ss" ]; then
+  exit 0
+fi
+
 printf '%s\n' \
   'Netid State Local Address:Port' \
   'tcp LISTEN 0.0.0.0:22'
@@ -56,7 +67,6 @@ EOF
 
 chmod +x "$MOCK_DIR/ip" "$MOCK_DIR/awk" "$MOCK_DIR/ss"
 
-# Test 1: Successful network report.
 if ! OUTPUT=$(PATH="$MOCK_DIR" "$BASH_BIN" "$SCRIPT" 2>&1); then
   fail "Network report should succeed"
 fi
@@ -73,7 +83,6 @@ for EXPECTED in \
     fail "Expected output not found: $EXPECTED"
 done
 
-# Test 2: Missing dependency.
 cp "$MOCK_DIR/ip" "$MOCK_DIR/ss" "$MISSING_AWK_DIR/"
 
 if OUTPUT=$(PATH="$MISSING_AWK_DIR" "$BASH_BIN" "$SCRIPT" 2>&1); then
@@ -83,7 +92,6 @@ fi
 [[ "$OUTPUT" == *'[ERROR] Required command not found: awk'* ]] ||
   fail "Missing dependency error not found"
 
-# Test 3: Runtime failures must produce nonzero exit codes.
 for FAILED_CMD in ip awk ss; do
   case "$FAILED_CMD" in
     ip)
@@ -104,6 +112,28 @@ for FAILED_CMD in ip awk ss; do
 
   [[ "$OUTPUT" == *"$EXPECTED_ERROR"* ]] ||
     fail "Missing error message for $FAILED_CMD"
+done
+
+for EMPTY_CMD in ip awk ss; do
+  case "$EMPTY_CMD" in
+    ip)
+      EXPECTED_ERROR="Network interface output is empty"
+      ;;
+    awk)
+      EXPECTED_ERROR="Network statistics output is empty"
+      ;;
+    ss)
+      EXPECTED_ERROR="Listening sockets output is empty"
+      ;;
+  esac
+
+  if OUTPUT=$(PATH="$MOCK_DIR" MOCK_EMPTY_CMD="$EMPTY_CMD" \
+      "$BASH_BIN" "$SCRIPT" 2>&1); then
+    fail "Empty $EMPTY_CMD output should return an error"
+  fi
+
+  [[ "$OUTPUT" == *"$EXPECTED_ERROR"* ]] ||
+    fail "Missing empty output error for $EMPTY_CMD"
 done
 
 echo "[ OK ] network-stats.sh tests passed"

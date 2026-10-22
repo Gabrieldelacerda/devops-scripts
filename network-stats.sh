@@ -14,6 +14,11 @@ if ! IP_OUTPUT=$(ip -br addr); then
   exit 1
 fi
 
+if [[ -z "$IP_OUTPUT" ]]; then
+  echo "[ERROR] Network interface output is empty"
+  exit 1
+fi
+
 printf '%s\n' "$IP_OUTPUT"
 
 echo ""
@@ -33,6 +38,11 @@ if ! STATS_OUTPUT=$(awk 'NR>2 {
   exit 1
 fi
 
+if [[ -z "$STATS_OUTPUT" ]]; then
+  echo "[ERROR] Network statistics output is empty"
+  exit 1
+fi
+
 printf '%s\n' "$STATS_OUTPUT"
 
 echo ""
@@ -40,6 +50,11 @@ echo "Listening sockets:"
 
 if ! SOCKET_OUTPUT=$(ss -tuln); then
   echo "[ERROR] Failed to retrieve listening sockets"
+  exit 1
+fi
+
+if [[ -z "$SOCKET_OUTPUT" ]]; then
+  echo "[ERROR] Listening sockets output is empty"
   exit 1
 fi
 
