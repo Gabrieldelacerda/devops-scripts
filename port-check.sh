@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 
 HOST="${1:-localhost}"
+CONNECT_TIMEOUT="${CONNECT_TIMEOUT:-2}"
+
+if ! [[ "$CONNECT_TIMEOUT" =~ ^([1-9]|[12][0-9]|30)$ ]]; then
+  echo "[ERROR] CONNECT_TIMEOUT must be an integer between 1 and 30 seconds"
+  exit 1
+fi
 
 if ! command -v nc >/dev/null 2>&1; then
   echo "[ERROR] Required command not found: nc"
@@ -22,7 +28,7 @@ for PORT in "${PORTS[@]}"; do
     continue
   fi
 
-  if nc -zw2 "$HOST" "$PORT" 2>/dev/null; then
+  if nc "-zw${CONNECT_TIMEOUT}" "$HOST" "$PORT" 2>/dev/null; then
     echo "[OPEN] $HOST:$PORT"
   else
     echo "[UNREACHABLE] $HOST:$PORT"

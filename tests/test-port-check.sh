@@ -23,7 +23,7 @@ cat > "$MOCK_DIR/nc" <<'EOF'
 
 printf '%s %s %s\n' "$1" "$2" "$3" >> "$MOCK_NC_LOG"
 
-if [[ "$#" -ne 3 || "$1" != "-zw2" ]]; then
+if [[ "$#" -ne 3 || "$1" != "-zw${MOCK_EXPECTED_TIMEOUT:-2}" ]]; then
   exit 2
 fi
 
@@ -107,6 +107,31 @@ EXPECTED=$'[OPEN] localhost:22\n[OPEN] localhost:80\n[OPEN] localhost:443\n[OPEN
 
 [[ "$OUTPUT" == "$EXPECTED" ]] ||
   fail "Default host or ports are incorrect"
+
+: > "$CALLS"
+
+OUTPUT=$(CONNECT_TIMEOUT=5 MOCK_EXPECTED_TIMEOUT=5 run_check example.test 443) ||
+  fail "Custom timeout should succeed"
+
+[[ "$OUTPUT" == "[OPEN] example.test:443" ]] ||
+  fail "Custom timeout produced incorrect output"
+
+[[ "$(cat "$CALLS")" == "-zw5 example.test 443" ]] ||
+  fail "Custom timeout was not passed to nc"
+
+for INVALID in 0 31 abc -1 1.5 02; do
+  : > "$CALLS"
+
+  if OUTPUT=$(CONNECT_TIMEOUT="$INVALID" run_check example.test 22 2>&1); then
+    fail "Invalid timeout '$INVALID' should fail"
+  fi
+
+  [[ "$OUTPUT" == "[ERROR] CONNECT_TIMEOUT must be an integer between 1 and 30 seconds" ]] ||
+    fail "Invalid timeout '$INVALID' produced incorrect output"
+
+  [[ ! -s "$CALLS" ]] ||
+    fail "Invalid timeout '$INVALID' reached nc"
+done
 
 if OUTPUT=$(PATH="$EMPTY_DIR" "$BASH_BIN" "$SCRIPT" example.test 22 2>&1); then
   fail "Missing nc should return failure"
