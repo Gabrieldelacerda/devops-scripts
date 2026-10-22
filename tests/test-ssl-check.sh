@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Test SSL certificate monitoring
+set -euo pipefail
 
 ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd) || exit 1
 SCRIPT="$ROOT_DIR/ssl-check.sh"
@@ -7,7 +7,7 @@ SCRIPT="$ROOT_DIR/ssl-check.sh"
 MOCK_DIR=$(mktemp -d) || exit 1
 trap 'rm -rf -- "$MOCK_DIR"' EXIT
 
-cat > "$MOCK_DIR/openssl" <<'EOF'
+cat > "$MOCK_DIR/openssl" <<'MOCK'
 #!/usr/bin/env bash
 
 case "$1" in
@@ -15,13 +15,18 @@ case "$1" in
     if [[ "$3" == "missing.test:443" ]]; then
       exit 1
     fi
+
     printf '%s\n' "$3"
+
+    if [[ "$3" == "handshake.test:443" ]]; then
+      exit 1
+    fi
     ;;
   x509)
     read -r DOMAIN || exit 1
 
     case "$DOMAIN" in
-      healthy.test:443)
+      healthy.test:443|handshake.test:443)
         EXPIRY=$(date -u -d '+120 days' '+%b %d %H:%M:%S %Y GMT')
         ;;
       expiring.test:443)
@@ -41,10 +46,9 @@ case "$1" in
     exit 1
     ;;
 esac
-EOF
+MOCK
 
 chmod +x "$MOCK_DIR/openssl" || exit 1
-
 
 if ! OUTPUT=$(PATH="$MOCK_DIR:$PATH" THRESHOLD=30 bash "$SCRIPT" healthy.test); then
   echo "[FAIL] Healthy certificate should pass"
@@ -56,7 +60,6 @@ if [[ "$OUTPUT" != "[ OK ] healthy.test certificate is valid for "* ]]; then
   exit 1
 fi
 
-
 if OUTPUT=$(PATH="$MOCK_DIR:$PATH" THRESHOLD=30 bash "$SCRIPT" expiring.test); then
   echo "[FAIL] Expiring certificate should trigger an alert"
   exit 1
@@ -67,7 +70,6 @@ if [[ "$OUTPUT" != "[ALERT] expiring.test certificate expires in "* ]]; then
   exit 1
 fi
 
-
 if OUTPUT=$(PATH="$MOCK_DIR:$PATH" bash "$SCRIPT" missing.test); then
   echo "[FAIL] Missing certificate should return failure"
   exit 1
@@ -77,7 +79,6 @@ if [[ "$OUTPUT" != "[ERROR] Could not retrieve certificate for missing.test" ]];
   echo "[FAIL] Expected certificate retrieval error"
   exit 1
 fi
-
 
 if OUTPUT=$(PATH="$MOCK_DIR:$PATH" bash "$SCRIPT" invalid.test); then
   echo "[FAIL] Invalid certificate date should return failure"
@@ -97,6 +98,16 @@ fi
 if [[ "$OUTPUT" != *"[ OK ] healthy.test"* ]] ||
    [[ "$OUTPUT" != *"[ERROR] Could not retrieve certificate for missing.test"* ]]; then
   echo "[FAIL] Expected results for both domains"
+  exit 1
+fi
+
+if OUTPUT=$(PATH="$MOCK_DIR:$PATH" bash "$SCRIPT" handshake.test); then
+  echo "[FAIL] Failed TLS connection should return failure even if certificate data is present"
+  exit 1
+fi
+
+if [[ "$OUTPUT" != "[ERROR] Could not retrieve certificate for handshake.test" ]]; then
+  echo "[FAIL] Expected connection failure error"
   exit 1
 fi
 

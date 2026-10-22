@@ -1,4 +1,5 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -o pipefail
 
 if [ "$#" -gt 0 ]; then
   DOMAINS=("$@")
@@ -16,10 +17,14 @@ fi
 FAILED=0
 
 for DOMAIN in "${DOMAINS[@]}"; do
-  CERT_INFO=$(echo | openssl s_client \
+  if ! CERT_INFO=$(printf '\n' | openssl s_client \
     -connect "$DOMAIN:443" \
     -servername "$DOMAIN" \
-    2>/dev/null | openssl x509 -noout -enddate 2>/dev/null)
+    2>/dev/null | openssl x509 -noout -enddate 2>/dev/null); then
+    echo "[ERROR] Could not retrieve certificate for $DOMAIN"
+    FAILED=1
+    continue
+  fi
 
   if [ -z "$CERT_INFO" ]; then
     echo "[ERROR] Could not retrieve certificate for $DOMAIN"
