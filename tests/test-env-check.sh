@@ -33,6 +33,15 @@ fi
 [[ "$OUTPUT" == "[MISSING] TEST_ENV_EMPTY is not set" ]] ||
   fail "Empty variable produced unexpected output"
 
+for INTERNAL in BASH_VERSION UID; do
+  if OUTPUT=$(env -u "$INTERNAL" bash "$SCRIPT" "$INTERNAL"); then
+    fail "Unexported Bash variable $INTERNAL should return failure"
+  fi
+
+  [[ "$OUTPUT" == "[MISSING] $INTERNAL is not set" ]] ||
+    fail "Unexported Bash variable $INTERNAL produced unexpected output"
+done
+
 for INVALID in "INVALID-NAME" "1INVALID" "HOME[0]" ""; do
   if OUTPUT=$(bash "$SCRIPT" "$INVALID" 2>&1); then
     fail "Invalid variable name should return failure"

@@ -15,7 +15,10 @@ for VAR in "${REQUIRED[@]}"; do
     continue
   fi
 
-  if [ -z "${!VAR:-}" ]; then
+  DECLARATION=$(declare -p "$VAR" 2>/dev/null || true)
+
+  if [[ ! "$DECLARATION" =~ ^declare[[:space:]]+-[^[:space:]]*x[[:space:]] ]] ||
+     [[ -z "${!VAR:-}" ]]; then
     echo "[MISSING] $VAR is not set"
     FAILED=1
   else
