@@ -36,6 +36,21 @@ case "${MOCK_DF_CASE:-normal}" in
   boundary)
     printf 'Use%% Mounted on\n0%% /empty\n100%% /full\n'
     ;;
+  malformed)
+    printf 'Use%% Mounted on\n25%% /test-root\nN/A /test-data\n'
+    ;;
+  missing-target)
+    printf 'Use%% Mounted on\n25%%\n'
+    ;;
+  out-of-range)
+    printf 'Use%% Mounted on\n120%% /test-data\n'
+    ;;
+  header-only)
+    printf 'Use%% Mounted on\n'
+    ;;
+  empty)
+    exit 0
+    ;;
   *)
     exit 2
     ;;
@@ -65,31 +80,28 @@ fi
 [[ "$OUTPUT" == *'[ALERT] /test-data is at 90% usage'* ]] ||
   fail "Threshold boundary was not detected"
 
-[[ "$OUTPUT" == *'[ OK ]  /test-root is at 25% usage'* ]] ||
-  fail "Healthy filesystem should still be reported"
-
 if OUTPUT=$(run_check 80 multiple); then
-  fail "At least one high-usage filesystem must fail the check"
+  fail "High-usage filesystems must trigger an alert"
 fi
 
-[[ "$OUTPUT" == *'[ALERT] /test-app is at 80% usage'* ]] ||
-  fail "Filesystem exactly at threshold was missed"
+for EXPECTED in \
+  '[ OK ]  /test-root is at 25% usage' \
+  '[ALERT] /test-app is at 80% usage' \
+  '[ALERT] /test-data is at 90% usage'; do
 
-[[ "$OUTPUT" == *'[ALERT] /test-data is at 90% usage'* ]] ||
-  fail "Filesystem above threshold was missed"
-
-[[ "$OUTPUT" == *'[ OK ]  /test-root is at 25% usage'* ]] ||
-  fail "Healthy filesystem was missed"
+  [[ "$OUTPUT" == *"$EXPECTED"* ]] ||
+    fail "Expected filesystem status not found: $EXPECTED"
+done
 
 if OUTPUT=$(run_check 100 boundary); then
-  fail "A full filesystem must trigger an alert at 100 percent"
+  fail "A full filesystem must trigger an alert"
 fi
 
 [[ "$OUTPUT" == *'[ALERT] /full is at 100% usage'* ]] ||
   fail "Full filesystem alert was missed"
 
 [[ "$OUTPUT" == *'[ OK ]  /empty is at 0% usage'* ]] ||
-  fail "Empty filesystem should be healthy at threshold 100"
+  fail "Empty filesystem should be healthy"
 
 if OUTPUT=$(run_check 0 boundary); then
   fail "Threshold zero must flag every filesystem"
@@ -106,10 +118,10 @@ for INVALID in abc -1 101 80.5; do
   fi
 
   [[ "$OUTPUT" == '[ERROR] THRESHOLD must be an integer between 0 and 100' ]] ||
-    fail "Incorrect error message for '$INVALID'"
+    fail "Incorrect threshold error"
 
   [[ ! -s "$CALLS" ]] ||
-    fail "df was called for invalid threshold '$INVALID'"
+    fail "df was called with an invalid threshold"
 done
 
 if OUTPUT=$(run_check 80 normal 1); then
@@ -118,6 +130,24 @@ fi
 
 [[ "$OUTPUT" == '[ERROR] Failed to retrieve disk usage' ]] ||
   fail "df failure was not reported"
+
+for CASE in malformed missing-target out-of-range; do
+  if OUTPUT=$(run_check 80 "$CASE"); then
+    fail "Invalid disk data '$CASE' should fail"
+  fi
+
+  [[ "$OUTPUT" == *'[ERROR] Invalid disk usage data:'* ]] ||
+    fail "Invalid disk data '$CASE' was not detected"
+done
+
+for CASE in header-only empty; do
+  if OUTPUT=$(run_check 80 "$CASE"); then
+    fail "Empty disk report '$CASE' should fail"
+  fi
+
+  [[ "$OUTPUT" == '[ERROR] No filesystem usage data found' ]] ||
+    fail "Empty disk report '$CASE' was not detected"
+done
 
 [[ -s "$CALLS" ]] ||
   fail "df was not executed"
