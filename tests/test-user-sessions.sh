@@ -49,11 +49,18 @@ OUTPUT=$(PATH="$MOCK_DIR:$PATH" "$BASH_BIN" "$SCRIPT" 3) ||
 [[ "$OUTPUT" == *"mock-lastb -n 3"* ]] ||
   fail "Failed login history limit was not applied"
 
-for INVALID in 0 -1 abc 1.5; do
+for INVALID in "" 0 -1 abc 1.5; do
   if PATH="$MOCK_DIR:$PATH" "$BASH_BIN" "$SCRIPT" "$INVALID" >/dev/null 2>&1; then
     fail "Invalid limit '$INVALID' should fail"
   fi
 done
+
+if OUTPUT=$(PATH="$MOCK_DIR:$PATH" "$BASH_BIN" "$SCRIPT" 3 extra 2>&1); then
+  fail "Extra arguments should return failure"
+fi
+
+[[ "$OUTPUT" == *"[ERROR] Expected at most one LIMIT argument"* ]] ||
+  fail "Extra arguments should produce a clear error"
 
 OUTPUT=$(PATH="$MOCK_DIR:$PATH" "$BASH_BIN" "$SCRIPT") ||
   fail "Default limit should succeed"

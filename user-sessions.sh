@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 
-LIMIT=${1:-5}
+if [ "$#" -gt 1 ]; then
+  echo "[ERROR] Expected at most one LIMIT argument" >&2
+  exit 1
+fi
+
+LIMIT=5
+
+if [ "$#" -eq 1 ]; then
+  LIMIT=$1
+fi
 
 if ! [[ "$LIMIT" =~ ^[1-9][0-9]*$ ]]; then
   echo "[ERROR] LIMIT must be a positive integer"
