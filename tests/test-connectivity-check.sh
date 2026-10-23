@@ -21,7 +21,7 @@ fail() {
 cat > "$MOCK_DIR/ping" <<'MOCK'
 #!/usr/bin/env bash
 
-if [[ "$#" -ne 5 || "$1" != "-c" || "$2" != "1" || "$3" != "-W" || "$4" != "2" ]]; then
+if [[ "$#" -ne 5 || "$1" != "-c" || "$2" != "1" || "$3" != "-W" || "$4" != "${MOCK_EXPECTED_TIMEOUT:-2}" ]]; then
   exit 9
 fi
 
@@ -49,6 +49,12 @@ OUTPUT=$(run_check reachable.test) ||
 
 [[ "$OUTPUT" == '[REACHABLE] reachable.test' ]] ||
   fail "Reachable host message is incorrect"
+
+OUTPUT=$(PING_TIMEOUT=5 MOCK_EXPECTED_TIMEOUT=5 run_check reachable.test) ||
+  fail "Custom ping timeout should succeed"
+
+[[ "$OUTPUT" == '[REACHABLE] reachable.test' ]] ||
+  fail "Custom ping timeout produced unexpected output"
 
 if OUTPUT=$(run_check unreachable.test); then
   fail "Unreachable host should return failure"
@@ -109,6 +115,20 @@ EXPECTED=$'[REACHABLE] 8.8.8.8\n[REACHABLE] 1.1.1.1\n[REACHABLE] github.com'
 
 [[ "$(wc -l < "$CALLS")" -eq 3 ]] ||
   fail "Default hosts were not all checked"
+
+: > "$CALLS"
+
+for INVALID in '' 0 -2 abc 31 1.5 01; do
+  if OUTPUT=$(PING_TIMEOUT="$INVALID" run_check reachable.test 2>&1); then
+    fail "Invalid PING_TIMEOUT '$INVALID' should fail"
+  fi
+
+  [[ "$OUTPUT" == *'[ERROR] PING_TIMEOUT must be an integer between 1 and 30'* ]] ||
+    fail "Invalid PING_TIMEOUT should produce a clear error"
+done
+
+[[ ! -s "$CALLS" ]] ||
+  fail "Invalid timeout should not execute ping"
 
 if OUTPUT=$(PATH="$EMPTY_DIR" "$BASH_BIN" "$SCRIPT" reachable.test 2>&1); then
   fail "Missing ping should return failure"
