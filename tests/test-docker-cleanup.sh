@@ -19,8 +19,7 @@ fail() {
   exit 1
 }
 
-# Mock Docker to avoid changing real Docker resources.
-cat > "$MOCK_DIR/docker" <<'EOF'
+cat > "$MOCK_DIR/docker" <<'MOCK'
 #!/usr/bin/env bash
 
 printf '%s\n' "$*" >> "$MOCK_DOCKER_LOG"
@@ -37,7 +36,7 @@ case "$*" in
     exit 2
     ;;
 esac
-EOF
+MOCK
 
 chmod +x "$MOCK_DIR/docker"
 
@@ -52,7 +51,6 @@ run_script() {
     "$BASH_BIN" "$SCRIPT"
 }
 
-# Test 1: Docker executable is missing.
 if OUTPUT=$(PATH="$EMPTY_PATH" "$BASH_BIN" "$SCRIPT" 2>&1); then
   fail "Missing Docker should return an error"
 fi
@@ -60,7 +58,6 @@ fi
 [[ "$OUTPUT" == *"[ERROR] Docker is not installed"* ]] ||
   fail "Missing Docker error message not found"
 
-# Test 2: Docker daemon is unavailable.
 : > "$LOG"
 
 if OUTPUT=$(run_script "y" "info" 2>&1); then
@@ -73,19 +70,32 @@ fi
 [[ "$(cat "$LOG")" == "info" ]] ||
   fail "Cleanup must not run when Docker daemon is unavailable"
 
-# Test 3: User cancels cleanup.
+for REPLY in n yes ""; do
+  : > "$LOG"
+
+  OUTPUT=$(run_script "$REPLY") ||
+    fail "Cancelled cleanup should exit successfully"
+
+  [[ "$OUTPUT" == *"Cleanup cancelled."* ]] ||
+    fail "Cancellation message not found"
+
+  [[ "$(cat "$LOG")" == "info" ]] ||
+    fail "Cancelled cleanup must not prune resources"
+done
+
 : > "$LOG"
 
-OUTPUT=$(run_script "n") ||
-  fail "Cancelled cleanup should exit successfully"
+if OUTPUT=$(PATH="$MOCK_DIR:$PATH" MOCK_DOCKER_LOG="$LOG" \
+  "$BASH_BIN" "$SCRIPT" </dev/null 2>&1); then
+  fail "Missing confirmation input should return an error"
+fi
 
-[[ "$OUTPUT" == *"Cleanup cancelled."* ]] ||
-  fail "Cancellation message not found"
+[[ "$OUTPUT" == *"[ERROR] Could not read cleanup confirmation"* ]] ||
+  fail "Missing confirmation input should explain the error"
 
 [[ "$(cat "$LOG")" == "info" ]] ||
-  fail "Cancelled cleanup must not prune resources"
+  fail "Cleanup must not run without confirmation"
 
-# Test 4: Successful cleanup runs commands in order.
 : > "$LOG"
 
 OUTPUT=$(run_script "y") ||
@@ -99,7 +109,6 @@ EXPECTED_CALLS=$'info\ncontainer prune -f\nimage prune -f\nvolume prune -f'
 [[ "$(cat "$LOG")" == "$EXPECTED_CALLS" ]] ||
   fail "Docker cleanup commands were not executed in the expected order"
 
-# Test 5: Failures stop the cleanup immediately.
 for FAILED_STEP in \
   "container prune -f" \
   "image prune -f" \

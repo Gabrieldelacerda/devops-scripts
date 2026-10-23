@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 if ! command -v docker >/dev/null 2>&1; then
   echo "[ERROR] Docker is not installed"
@@ -10,7 +10,10 @@ if ! docker info >/dev/null 2>&1; then
   exit 1
 fi
 
-read -r -p "This will remove stopped containers, unused images, and dangling volumes. Continue? [y/N] " REPLY
+if ! read -r -p "This will remove stopped containers, unused images, and dangling volumes. Continue? [y/N] " REPLY; then
+  echo "[ERROR] Could not read cleanup confirmation" >&2
+  exit 1
+fi
 
 if [[ ! "$REPLY" =~ ^[Yy]$ ]]; then
   echo "Cleanup cancelled."
