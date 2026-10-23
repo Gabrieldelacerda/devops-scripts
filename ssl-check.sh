@@ -8,16 +8,27 @@ else
 fi
 
 THRESHOLD=${THRESHOLD:-30}
+TLS_TIMEOUT=${TLS_TIMEOUT-5}
 
 if ! [[ "$THRESHOLD" =~ ^[0-9]+$ ]]; then
   echo "[ERROR] THRESHOLD must be a non-negative integer"
   exit 1
 fi
 
+if ! [[ "$TLS_TIMEOUT" =~ ^([1-9]|[12][0-9]|30)$ ]]; then
+  echo "[ERROR] TLS_TIMEOUT must be an integer between 1 and 30 seconds" >&2
+  exit 1
+fi
+
+if ! command -v timeout >/dev/null 2>&1; then
+  echo "[ERROR] Required command not found: timeout" >&2
+  exit 1
+fi
+
 FAILED=0
 
 for DOMAIN in "${DOMAINS[@]}"; do
-  if ! CERT_INFO=$(printf '\n' | openssl s_client \
+  if ! CERT_INFO=$(printf '\n' | timeout "$TLS_TIMEOUT" openssl s_client \
     -connect "$DOMAIN:443" \
     -servername "$DOMAIN" \
     2>/dev/null | openssl x509 -noout -enddate 2>/dev/null); then

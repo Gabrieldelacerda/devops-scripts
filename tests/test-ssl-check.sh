@@ -4,8 +4,36 @@ set -euo pipefail
 ROOT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd) || exit 1
 SCRIPT="$ROOT_DIR/ssl-check.sh"
 
-MOCK_DIR=$(mktemp -d) || exit 1
-trap 'rm -rf -- "$MOCK_DIR"' EXIT
+TEST_DIR=$(mktemp -d) || exit 1
+trap 'rm -rf -- "$TEST_DIR"' EXIT
+
+MOCK_DIR="$TEST_DIR/mock-bin"
+EMPTY_DIR="$TEST_DIR/empty-bin"
+TIMEOUT_CALLS="$TEST_DIR/timeout-calls.log"
+BASH_BIN="$(command -v bash)"
+mkdir -p "$MOCK_DIR" "$EMPTY_DIR"
+
+fail() {
+  echo "[FAIL] $1"
+  exit 1
+}
+
+cat > "$MOCK_DIR/timeout" <<'MOCK'
+#!/usr/bin/env bash
+
+if [[ "$#" -lt 2 || "$1" != "${MOCK_EXPECTED_TIMEOUT:-5}" || "$2" != "openssl" ]]; then
+  exit 9
+fi
+
+printf '%s\n' "$1" >> "$MOCK_TIMEOUT_LOG"
+shift
+
+if [[ "${MOCK_TIMEOUT_FAILURE:-0}" == 1 ]]; then
+  exit 124
+fi
+
+exec "$@"
+MOCK
 
 cat > "$MOCK_DIR/openssl" <<'MOCK'
 #!/usr/bin/env bash
@@ -48,67 +76,66 @@ case "$1" in
 esac
 MOCK
 
-chmod +x "$MOCK_DIR/openssl" || exit 1
+chmod +x "$MOCK_DIR/openssl" "$MOCK_DIR/timeout"
 
-if ! OUTPUT=$(PATH="$MOCK_DIR:$PATH" THRESHOLD=30 bash "$SCRIPT" healthy.test); then
-  echo "[FAIL] Healthy certificate should pass"
-  exit 1
-fi
+run_check() {
+  PATH="$MOCK_DIR:$PATH" MOCK_TIMEOUT_LOG="$TIMEOUT_CALLS" "$BASH_BIN" "$SCRIPT" "$@"
+}
 
-if [[ "$OUTPUT" != "[ OK ] healthy.test certificate is valid for "* ]]; then
-  echo "[FAIL] Unexpected healthy certificate output"
-  exit 1
-fi
+OUTPUT=$(run_check healthy.test) || fail "Healthy certificate should pass"
+[[ "$OUTPUT" == "[ OK ] healthy.test certificate is valid for "* ]] || fail "Healthy certificate output incorrect"
 
-if OUTPUT=$(PATH="$MOCK_DIR:$PATH" THRESHOLD=30 bash "$SCRIPT" expiring.test); then
-  echo "[FAIL] Expiring certificate should trigger an alert"
-  exit 1
-fi
+OUTPUT=$(TLS_TIMEOUT=10 MOCK_EXPECTED_TIMEOUT=10 run_check healthy.test) || fail "Custom TLS timeout should succeed"
+[[ "$OUTPUT" == "[ OK ] healthy.test certificate is valid for "* ]] || fail "Custom timeout output incorrect"
+[[ "$(tail -n 1 "$TIMEOUT_CALLS")" == "10" ]] || fail "Configured timeout was not used"
 
-if [[ "$OUTPUT" != "[ALERT] expiring.test certificate expires in "* ]]; then
-  echo "[FAIL] Expected expiration alert"
-  exit 1
+if OUTPUT=$(run_check expiring.test); then
+  fail "Expiring certificate should trigger alert"
 fi
+[[ "$OUTPUT" == "[ALERT] expiring.test certificate expires in "* ]] || fail "Expiration alert missing"
 
-if OUTPUT=$(PATH="$MOCK_DIR:$PATH" bash "$SCRIPT" missing.test); then
-  echo "[FAIL] Missing certificate should return failure"
-  exit 1
+if OUTPUT=$(run_check missing.test); then
+  fail "Missing certificate should fail"
 fi
+[[ "$OUTPUT" == "[ERROR] Could not retrieve certificate for missing.test" ]] || fail "Missing certificate error incorrect"
 
-if [[ "$OUTPUT" != "[ERROR] Could not retrieve certificate for missing.test" ]]; then
-  echo "[FAIL] Expected certificate retrieval error"
-  exit 1
+if OUTPUT=$(run_check invalid.test); then
+  fail "Invalid expiry should fail"
 fi
+[[ "$OUTPUT" == "[ERROR] Could not parse certificate expiry for invalid.test" ]] || fail "Invalid expiry error incorrect"
 
-if OUTPUT=$(PATH="$MOCK_DIR:$PATH" bash "$SCRIPT" invalid.test); then
-  echo "[FAIL] Invalid certificate date should return failure"
-  exit 1
+if OUTPUT=$(run_check healthy.test missing.test); then
+  fail "Mixed certificates should fail"
 fi
+[[ "$OUTPUT" == *"[ OK ] healthy.test"* && "$OUTPUT" == *"[ERROR] Could not retrieve certificate for missing.test"* ]] || fail "Mixed results incomplete"
 
-if [[ "$OUTPUT" != "[ERROR] Could not parse certificate expiry for invalid.test" ]]; then
-  echo "[FAIL] Expected expiration parsing error"
-  exit 1
+if OUTPUT=$(run_check handshake.test); then
+  fail "Failed TLS handshake should fail even with certificate data"
 fi
+[[ "$OUTPUT" == "[ERROR] Could not retrieve certificate for handshake.test" ]] || fail "TLS handshake error incorrect"
 
-if OUTPUT=$(PATH="$MOCK_DIR:$PATH" bash "$SCRIPT" healthy.test missing.test); then
-  echo "[FAIL] Mixed certificate results should return failure"
-  exit 1
+if OUTPUT=$(MOCK_TIMEOUT_FAILURE=1 run_check healthy.test); then
+  fail "Timed-out TLS connection should fail"
 fi
+[[ "$OUTPUT" == "[ERROR] Could not retrieve certificate for healthy.test" ]] || fail "Timeout failure not reported"
 
-if [[ "$OUTPUT" != *"[ OK ] healthy.test"* ]] ||
-   [[ "$OUTPUT" != *"[ERROR] Could not retrieve certificate for missing.test"* ]]; then
-  echo "[FAIL] Expected results for both domains"
-  exit 1
-fi
+: > "$TIMEOUT_CALLS"
+for INVALID in '' 0 -1 abc 31 05; do
+  if OUTPUT=$(TLS_TIMEOUT="$INVALID" run_check healthy.test 2>&1); then
+    fail "Invalid timeout '$INVALID' should fail"
+  fi
+  [[ "$OUTPUT" == "[ERROR] TLS_TIMEOUT must be an integer between 1 and 30 seconds" ]] || fail "Invalid timeout error incorrect"
+done
+[[ ! -s "$TIMEOUT_CALLS" ]] || fail "Invalid timeout should not invoke TLS client"
 
-if OUTPUT=$(PATH="$MOCK_DIR:$PATH" bash "$SCRIPT" handshake.test); then
-  echo "[FAIL] Failed TLS connection should return failure even if certificate data is present"
-  exit 1
+if OUTPUT=$(THRESHOLD=abc run_check healthy.test 2>&1); then
+  fail "Invalid threshold should fail"
 fi
+[[ "$OUTPUT" == "[ERROR] THRESHOLD must be a non-negative integer" ]] || fail "Invalid threshold error incorrect"
 
-if [[ "$OUTPUT" != "[ERROR] Could not retrieve certificate for handshake.test" ]]; then
-  echo "[FAIL] Expected connection failure error"
-  exit 1
+if OUTPUT=$(PATH="$EMPTY_DIR" "$BASH_BIN" "$SCRIPT" healthy.test 2>&1); then
+  fail "Missing timeout command should fail"
 fi
+[[ "$OUTPUT" == "[ERROR] Required command not found: timeout" ]] || fail "Missing timeout error incorrect"
 
 echo "[ OK ] ssl-check.sh tests passed"
