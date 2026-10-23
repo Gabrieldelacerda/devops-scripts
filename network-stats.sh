@@ -22,6 +22,20 @@ fi
 printf '%s\n' "$IP_OUTPUT"
 
 echo ""
+echo "Routing table:"
+
+if ! ROUTE_OUTPUT=$(ip route show); then
+  echo "[ERROR] Failed to retrieve routing table"
+  exit 1
+fi
+
+if [[ -z "$ROUTE_OUTPUT" ]]; then
+  echo "[INFO] No routes reported"
+else
+  printf '%s\n' "$ROUTE_OUTPUT"
+fi
+
+echo ""
 echo "Network statistics:"
 
 if ! STATS_OUTPUT=$(awk 'NR>2 {
