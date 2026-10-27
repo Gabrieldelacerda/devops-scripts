@@ -3,6 +3,7 @@
 HTTP_EXPECTED_STATUS=${HTTP_EXPECTED_STATUS-200}
 HTTP_TIMEOUT=${HTTP_TIMEOUT-5}
 HTTP_METHOD=${HTTP_METHOD-GET}
+HTTP_FOLLOW_REDIRECTS=${HTTP_FOLLOW_REDIRECTS-0}
 
 if [[ ! "$HTTP_EXPECTED_STATUS" =~ ^[1-5][0-9]{2}$ ]]; then
   echo "[ERROR] HTTP_EXPECTED_STATUS must be a valid HTTP status code" >&2
@@ -16,6 +17,11 @@ fi
 
 if [[ "$HTTP_METHOD" != "GET" && "$HTTP_METHOD" != "HEAD" ]]; then
   echo "[ERROR] HTTP_METHOD must be GET or HEAD" >&2
+  exit 1
+fi
+
+if [[ "$HTTP_FOLLOW_REDIRECTS" != "0" && "$HTTP_FOLLOW_REDIRECTS" != "1" ]]; then
+  echo "[ERROR] HTTP_FOLLOW_REDIRECTS must be 0 or 1" >&2
   exit 1
 fi
 
@@ -33,6 +39,10 @@ CURL_OPTIONS=(--silent --output /dev/null --write-out '%{http_code}' --max-time 
 
 if [[ "$HTTP_METHOD" == "HEAD" ]]; then
   CURL_OPTIONS+=(--head)
+fi
+
+if [[ "$HTTP_FOLLOW_REDIRECTS" == "1" ]]; then
+  CURL_OPTIONS+=(--location)
 fi
 
 FAILED=0
