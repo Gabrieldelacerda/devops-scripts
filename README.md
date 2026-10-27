@@ -1,193 +1,202 @@
-# devops-scripts
 
-A collection of Bash scripts for automating common Linux, DevOps, and system administration tasks.
+# DevOps Scripts
 
-The project focuses on infrastructure operations, reliable automation, troubleshooting, error handling, and automated testing.
+A collection of Bash scripts developed to automate Linux administration, monitor system health, troubleshoot infrastructure issues, and practice DevOps engineering principles.
+
+This repository is part of my hands-on learning journey toward Cloud Engineering, DevOps, and Site Reliability Engineering (SRE).
+
+The focus is on building practical, reusable tools with input validation, error handling, automated testing, and continuous integration.
+
+## Tech Stack
+
+- **Operating System:** Linux
+- **Scripting:** Bash
+- **Containers:** Docker
+- **Version Control:** Git and GitHub
+- **CI:** GitHub Actions
+- **Code Quality:** ShellCheck and Bash syntax validation
+- **Testing:** Automated Bash tests with mocked system commands
 
 ## Scripts
 
+### System Monitoring
+
 | Script | Description |
 |---|---|
-| `disk-check.sh` | Monitors disk usage against a configurable threshold |
-| `docker-cleanup.sh` | Cleans up unused Docker resources with confirmation |
-| `service-health.sh` | Checks systemd services, boot configuration, and command failures |
-| `connectivity-check.sh` | Checks ICMP connectivity and reports operational errors |
-| `log-cleanup.sh` | Removes old log files, with an optional dry-run mode |
-| `backup.sh` | Creates compressed backups with unique filenames |
-| `cpu-check.sh` | Monitors CPU usage, validates CPU counters, and detects sampling errors |
-| `port-check.sh` | Checks TCP connectivity with configurable connection timeouts |
-| `uptime-check.sh` | Reports system uptime, evaluates load average, and handles collection failures |
-| `user-sessions.sh` | Displays active sessions and login history with error handling |
-| `ssl-check.sh` | Checks SSL certificate expiration and detects TLS connection failures |
-| `process-monitor.sh` | Displays top CPU and memory processes and detects collection failures |
-| `network-stats.sh` | Reports interfaces, traffic statistics, and listening sockets with error detection |
-| `env-check.sh` | Validates required environment variables without exposing their values |
-| `validate-scripts.sh` | Performs Bash syntax checks and ShellCheck validation |
+| `cpu-check.sh` | Monitors CPU utilization and identifies high usage. |
+| `disk-check.sh` | Checks filesystem usage against a configurable threshold. |
+| `uptime-check.sh` | Retrieves system uptime and load information. |
+| `process-monitor.sh` | Checks whether specified processes are running. |
+| `network-stats.sh` | Collects network interface statistics. |
+| `user-sessions.sh` | Displays information about active user sessions. |
 
-## Usage
+### Network and Service Troubleshooting
 
-Run a script with:
+| Script | Description |
+|---|---|
+| `connectivity-check.sh` | Performs network connectivity checks. |
+| `port-check.sh` | Tests port connectivity with a configurable timeout. |
+| `ssl-check.sh` | Checks SSL/TLS certificate validity and expiration. |
+| `service-health.sh` | Checks the status of system services. |
 
-```bash
-bash <script-name>.sh
-```
+### Automation and Maintenance
 
-For additional examples, see [USAGE-EXAMPLES.md](USAGE-EXAMPLES.md).
+| Script | Description |
+|---|---|
+| `backup.sh` | Creates timestamped compressed backups from configurable directories. |
+| `docker-cleanup.sh` | Removes selected unused Docker resources after confirmation. |
+| `log-cleanup.sh` | Automates log cleanup operations. |
+| `env-check.sh` | Validates required environment configuration. |
 
-### Log Cleanup — Dry Run
+### Quality Assurance
 
-Preview which log files would be removed:
+| Script | Description |
+|---|---|
+| `validate-scripts.sh` | Runs Bash syntax validation and ShellCheck checks. |
 
-```bash
-bash log-cleanup.sh /path/to/logs 7 --dry-run
-```
+## Usage Examples
 
-The dry-run mode lists matching files without deleting them.
-
-To perform the cleanup:
+Clone the repository:
 
 ```bash
-bash log-cleanup.sh /path/to/logs 7
+git clone https://github.com/Gabrieldelacerda/devops-scripts.git
+cd devops-scripts
 ```
 
-### Backups
-
-Create a compressed backup:
+### Check Disk Usage
 
 ```bash
-bash backup.sh /path/to/source /path/to/backups
+bash disk-check.sh
 ```
 
-Backup filenames combine a timestamp with a unique suffix, preventing files created within the same second from overwriting one another.
-
-Backup integrity and restoration procedures are documented in [Backup Verification](docs/backup-verification.md).
-
-### Connectivity Checks
-
-Check ICMP connectivity to specific hosts:
+Use a custom utilization threshold:
 
 ```bash
-bash connectivity-check.sh github.com 1.1.1.1
+THRESHOLD=85 bash disk-check.sh
 ```
 
-The script distinguishes unreachable hosts, invalid inputs, and operational errors reported by `ping`.
-
-### TCP Port Checks
-
-Check TCP connectivity:
+### Check SSL Certificates
 
 ```bash
-bash port-check.sh github.com 443
+bash ssl-check.sh github.com
 ```
 
-Configure the connection timeout:
+### Create a Backup
 
 ```bash
-CONNECT_TIMEOUT=5 bash port-check.sh github.com 443
+SOURCE="$HOME/projects" DEST="/tmp/test-backups" bash backup.sh
 ```
 
-The default timeout is 2 seconds. Custom values from 1 to 30 seconds are supported.
-
-### CPU Monitoring
-
-Check CPU usage against a threshold:
+### Check System Services
 
 ```bash
-THRESHOLD=80 bash cpu-check.sh
+bash service-health.sh docker
 ```
 
-The script samples CPU counters, validates the measurements, and reports alerts when usage reaches the configured threshold.
-
-### SSL Certificate Monitoring
-
-Check certificate expiration:
-
-```bash
-THRESHOLD=30 bash ssl-check.sh github.com
-```
-
-The script reports certificates approaching expiration and detects errors during TLS connection and certificate retrieval.
-
-It is designed for expiration monitoring, not full certificate chain validation.
-
-## Automated Testing
-
-The repository includes **16 automated test suites** covering:
-
-- Environment variable validation, including invalid variable names
-- Disk usage, CPU usage, and load average monitoring
-- CPU counter validation and sampling failures
-- TCP connectivity, port boundaries, and configurable timeouts
-- ICMP connectivity and operational errors
-- Systemd service health, missing services, and command failures
-- SSL certificate expiration and TLS connection failures
-- Backup creation, restoration, and error handling
-- Docker cleanup and cancellation
-- Log cleanup, including dry-run behavior
-- Network monitoring, empty outputs, and command failures
-- Process monitoring, input validation, and collection failures
-- User session monitoring and command failure handling
-- Test runner behavior and failure reporting
-- Bash validator behavior and error detection
-
-Tests cover successful operations, invalid inputs, boundary conditions, failure scenarios, and exit codes.
-
-Mocked commands and controlled test inputs are used where appropriate to simulate failures safely and produce reproducible results.
-
-Run the complete test suite:
-
-```bash
-bash tests/run-tests.sh
-```
-
-Successful execution:
-
-```text
-Results: 16 passed, 0 failed
-```
-
-## Validation and CI/CD
-
-Validate Bash syntax and run ShellCheck across the repository:
+### Validate the Scripts
 
 ```bash
 bash validate-scripts.sh
 ```
 
-Validate specific scripts:
+### Run Automated Tests
 
 ```bash
-bash validate-scripts.sh backup.sh network-stats.sh
+bash tests/run-tests.sh
 ```
 
-GitHub Actions automatically runs static validation and functional tests on pushes and pull requests. The workflow also supports manual execution.
+Some scripts depend on system utilities, permissions, or services being available in the target Linux environment.
 
-The pipeline uses read-only repository permissions and reports failures when validation or tests do not pass.
+Review script behavior and configuration before running maintenance operations on important systems.
 
-### GitHub Actions Pipeline
+## Automated Testing
 
-![Successful GitHub Actions pipeline](docs/screenshots/github-actions-pipeline.png)
+The repository includes automated tests for the Bash scripts.
 
-### Automated Test Results
+Testing focuses on:
 
-The screenshot below documents an earlier successful run with 9 passing suites. The project has since expanded to 16 automated test suites.
+- Valid and invalid input handling
+- Expected command output
+- Command execution failures
+- Boundary conditions and configurable thresholds
+- Error messages and exit statuses
+- Safe handling of unsuccessful operations
 
-![Automated test results](docs/screenshots/automated-tests-results.png)
+Tests use mocked system commands where appropriate, allowing failure scenarios to be reproduced without depending on actual infrastructure failures.
 
-## Operational Documentation
+This helps validate script behavior while keeping development and testing isolated from production environments.
 
-Additional guides based on Linux infrastructure and application troubleshooting practices:
+## Continuous Integration
 
-- [Backup Verification](docs/backup-verification.md) — Archive inspection, integrity checks, and restoration procedures
-- [Application Troubleshooting](docs/application-troubleshooting.md) — HTTP 502 errors, Kubernetes CrashLoopBackOff, logs, and incident investigation
+GitHub Actions is used to automate repository checks.
 
-## Project Goals
+The validation workflow helps maintain code quality by checking Bash syntax, running ShellCheck, and executing the automated test suite.
 
-This project is part of my hands-on Cloud/DevOps learning journey, with an emphasis on:
+This introduces practical CI concepts such as repeatable validation, early failure detection, and consistent quality checks.
 
-- Linux infrastructure operations
-- Bash automation and troubleshooting
-- Reliable scripting and failure handling
-- Automated testing and CI/CD
-- Monitoring and operational diagnostics
-- Maintainable infrastructure tooling
+## Troubleshooting and Technical Documentation
+
+Alongside the scripts, this repository includes technical notes covering practical infrastructure and application support scenarios.
+
+- [Application Troubleshooting](docs/application-troubleshooting.md) — HTTP errors, Kubernetes troubleshooting concepts, and structured incident investigation.
+- [Backup Verification and Recovery](docs/backup-verification.md) — Backup integrity, recovery validation, and operational considerations.
+
+These documents complement the automation scripts and reinforce practical troubleshooting approaches.
+
+## Engineering Practices
+
+The scripts and tests are developed with an emphasis on:
+
+**Reliability**
+
+Validating inputs, checking command execution results, and handling unexpected conditions.
+
+**Observability**
+
+Collecting meaningful system information and producing output useful for troubleshooting.
+
+**Automation**
+
+Reducing repetitive operational tasks through reusable Bash utilities.
+
+**Testing**
+
+Using automated checks and controlled failure scenarios to verify expected behavior.
+
+**Maintainability**
+
+Keeping scripts focused, readable, and straightforward to extend.
+
+## Learning Objectives
+
+This repository supports continued development in:
+
+- Linux system administration
+- Bash scripting and automation
+- Networking and infrastructure troubleshooting
+- System and application monitoring
+- Docker operations
+- Git and version control
+- Continuous integration and automated testing
+- Incident investigation and operational reliability
+
+These foundations are directly applicable to Cloud Operations, DevOps Engineering, and SRE roles.
+
+## Roadmap
+
+Areas for continued improvement include:
+
+- Expanding automated test coverage
+- Improving script portability and error handling
+- Adding more infrastructure troubleshooting scenarios
+- Exploring integrations with monitoring platforms
+- Applying automation to cloud-based environments
+- Developing additional CI/CD and infrastructure-as-code projects
+
+## About
+
+I have a professional background in corporate IT support and infrastructure, with experience in troubleshooting, incident management, networking, and supporting business-critical systems.
+
+I am currently expanding my practical skills in Linux, automation, containers, CI/CD, and cloud technologies as part of my transition toward Cloud and DevOps engineering.
+
+This repository documents that technical progression through hands-on projects and continuous improvement.
