@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
 
-HOST="${1:-localhost}"
+HOST="${1-localhost}"
 CONNECT_TIMEOUT="${CONNECT_TIMEOUT:-2}"
 
 if ! [[ "$CONNECT_TIMEOUT" =~ ^([1-9]|[12][0-9]|30)$ ]]; then
   echo "[ERROR] CONNECT_TIMEOUT must be an integer between 1 and 30 seconds"
+  exit 1
+fi
+
+if [[ -z "$HOST" || "$HOST" == -* || "$HOST" =~ [[:space:]/] ]]; then
+  echo "[INVALID] Invalid host: $HOST"
   exit 1
 fi
 
@@ -22,16 +27,24 @@ fi
 FAILED=0
 
 for PORT in "${PORTS[@]}"; do
-  if ! [[ "$PORT" =~ ^[0-9]+$ ]] || [ "$PORT" -lt 1 ] || [ "$PORT" -gt 65535 ]; then
+  if ! [[ "$PORT" =~ ^[0-9]{1,5}$ ]]; then
     echo "[INVALID] Port must be between 1 and 65535: $PORT"
     FAILED=1
     continue
   fi
 
-  if nc "-zw${CONNECT_TIMEOUT}" "$HOST" "$PORT" 2>/dev/null; then
-    echo "[OPEN] $HOST:$PORT"
+  PORT_NUMBER=$((10#$PORT))
+
+  if ((PORT_NUMBER < 1 || PORT_NUMBER > 65535)); then
+    echo "[INVALID] Port must be between 1 and 65535: $PORT"
+    FAILED=1
+    continue
+  fi
+
+  if nc "-zw${CONNECT_TIMEOUT}" "$HOST" "$PORT_NUMBER" 2>/dev/null; then
+    echo "[OPEN] $HOST:$PORT_NUMBER"
   else
-    echo "[UNREACHABLE] $HOST:$PORT"
+    echo "[UNREACHABLE] $HOST:$PORT_NUMBER"
     FAILED=1
   fi
 done
