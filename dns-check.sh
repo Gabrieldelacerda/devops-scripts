@@ -23,10 +23,35 @@ if ! command -v dig >/dev/null 2>&1; then
   exit 1
 fi
 
+valid_domain() {
+  local NAME="${1%.}"
+  local LABEL
+  local IFS=.
+  local -a LABELS
+
+  if [[ -z "$NAME" || ${#NAME} -gt 253 || "$NAME" == *. || "$NAME" == *..* ]]; then
+    return 1
+  fi
+
+  if ! [[ "$NAME" =~ ^[a-zA-Z0-9_.-]+$ ]]; then
+    return 1
+  fi
+
+  read -r -a LABELS <<< "$NAME"
+
+  for LABEL in "${LABELS[@]}"; do
+    if [[ -z "$LABEL" || ${#LABEL} -gt 63 || "$LABEL" == -* || "$LABEL" == *- ]]; then
+      return 1
+    fi
+  done
+
+  return 0
+}
+
 FAILED=0
 
 for DOMAIN in "$@"; do
-  if ! [[ "$DOMAIN" =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.-]*$ ]] || [[ "$DOMAIN" == *..* ]]; then
+  if ! valid_domain "$DOMAIN"; then
     echo "[INVALID] Invalid domain: $DOMAIN"
     FAILED=1
     continue
