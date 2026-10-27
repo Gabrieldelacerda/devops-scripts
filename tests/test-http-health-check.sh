@@ -31,7 +31,12 @@ case "$9" in
   https://ok.test) printf '200' ;;
   https://redirect.test) printf '301' ;;
   https://created.test) printf '201' ;;
+  https://dns-error.test) exit 6 ;;
+  https://connection-error.test) exit 7 ;;
   https://offline.test) exit 28 ;;
+  https://tls-error.test) exit 35 ;;
+  https://certificate-error.test) exit 60 ;;
+  https://unknown-error.test) exit 52 ;;
   *) exit 9 ;;
 esac
 MOCK
@@ -43,7 +48,7 @@ run_check() {
 }
 
 OUTPUT=$(run_check https://ok.test) ||
-  fail "200 response should succeed"
+  fail "HTTP 200 should succeed"
 
 [[ "$OUTPUT" == '[ OK ] https://ok.test returned HTTP 200' ]] ||
   fail "Successful response output incorrect"
@@ -55,23 +60,63 @@ OUTPUT=$(HTTP_EXPECTED_STATUS=201 run_check https://created.test) ||
   fail "Custom status output incorrect"
 
 OUTPUT=$(HTTP_TIMEOUT=9 MOCK_EXPECTED_TIMEOUT=9 run_check https://ok.test) ||
-  fail "Custom HTTP timeout should succeed"
+  fail "Custom timeout should succeed"
 
 [[ "$OUTPUT" == '[ OK ] https://ok.test returned HTTP 200' ]] ||
   fail "Custom timeout output incorrect"
 
-if OUTPUT=$(run_check https://ok.test https://redirect.test https://offline.test https://created.test); then
-  fail "Mixed responses should return failure"
+if OUTPUT=$(run_check https://redirect.test); then
+  fail "Unexpected HTTP status should fail"
 fi
 
-[[ "$OUTPUT" == *'[ALERT] https://redirect.test returned HTTP 301 (expected 200)'* ]] ||
-  fail "Unexpected status not detected"
+[[ "$OUTPUT" == '[ALERT] https://redirect.test returned HTTP 301 (expected 200)' ]] ||
+  fail "Unexpected HTTP status message incorrect"
 
-[[ "$OUTPUT" == *'[ERROR] Request failed for https://offline.test (curl exit code: 28: Request timed out)'* ]] ||
-  fail "Request error not detected"
+for CASE in \
+  'dns-error.test|6|DNS resolution failed' \
+  'connection-error.test|7|Connection failed' \
+  'offline.test|28|Request timed out' \
+  'tls-error.test|35|TLS handshake failed' \
+  'certificate-error.test|60|TLS certificate verification failed'; do
+
+  IFS='|' read -r HOST CODE REASON <<< "$CASE"
+
+  if OUTPUT=$(run_check "https://$HOST"); then
+    fail "$HOST should return failure"
+  fi
+
+  EXPECTED="[ERROR] Request failed for https://$HOST (curl exit code: $CODE: $REASON)"
+
+  [[ "$OUTPUT" == "$EXPECTED" ]] ||
+    fail "Incorrect diagnostic for curl exit code $CODE"
+done
+
+if OUTPUT=$(run_check https://unknown-error.test); then
+  fail "Unknown curl error should fail"
+fi
+
+[[ "$OUTPUT" == '[ERROR] Request failed for https://unknown-error.test (curl exit code: 52)' ]] ||
+  fail "Unknown curl error should retain its exit code"
+
+: > "$CALLS"
+
+if OUTPUT=$(run_check https://ok.test https://offline.test https://created.test); then
+  fail "Mixed results should return failure"
+fi
+
+[[ "$OUTPUT" == *'[ OK ] https://ok.test returned HTTP 200'* ]] ||
+  fail "Initial successful request missing"
+
+[[ "$OUTPUT" == *'Request timed out'* ]] ||
+  fail "Timeout diagnostic missing"
 
 [[ "$OUTPUT" == *'[ALERT] https://created.test returned HTTP 201 (expected 200)'* ]] ||
-  fail "Subsequent request not checked"
+  fail "Requests should continue after a failure"
+
+EXPECTED_CALLS=$'https://ok.test\nhttps://offline.test\nhttps://created.test'
+
+[[ "$(cat "$CALLS")" == "$EXPECTED_CALLS" ]] ||
+  fail "Requests were not executed in the expected order"
 
 : > "$CALLS"
 
@@ -81,26 +126,26 @@ for URL in '' 'ftp://foo.test' 'https://' 'https://two words'; do
   fi
 
   [[ "$OUTPUT" == *'[INVALID] Invalid HTTP URL:'* ]] ||
-    fail "Invalid URL output incorrect"
+    fail "Invalid URL message incorrect"
 done
 
 [[ ! -s "$CALLS" ]] ||
-  fail "Invalid URLs should not invoke curl"
+  fail "Invalid URLs should not reach curl"
 
 if OUTPUT=$(run_check 2>&1); then
-  fail "No URL should fail"
+  fail "Missing URL should fail"
 fi
 
 [[ "$OUTPUT" == Usage:* ]] ||
-  fail "No URL usage missing"
+  fail "Missing URL usage message incorrect"
 
 for CODE in '' 0 abc 99 600 2000; do
   if OUTPUT=$(HTTP_EXPECTED_STATUS="$CODE" run_check https://ok.test 2>&1); then
-    fail "Invalid status '$CODE' should fail"
+    fail "Invalid HTTP status '$CODE' should fail"
   fi
 
   [[ "$OUTPUT" == *'[ERROR] HTTP_EXPECTED_STATUS must be a valid HTTP status code'* ]] ||
-    fail "Invalid expected status error missing"
+    fail "Invalid HTTP status message incorrect"
 done
 
 for TIMEOUT in '' 0 -1 abc 31 05; do
@@ -109,7 +154,7 @@ for TIMEOUT in '' 0 -1 abc 31 05; do
   fi
 
   [[ "$OUTPUT" == *'[ERROR] HTTP_TIMEOUT must be an integer between 1 and 30'* ]] ||
-    fail "Invalid timeout error missing"
+    fail "Invalid timeout message incorrect"
 done
 
 if OUTPUT=$(PATH="$EMPTY_DIR" "$BASH_BIN" "$SCRIPT" https://ok.test 2>&1); then
@@ -117,6 +162,6 @@ if OUTPUT=$(PATH="$EMPTY_DIR" "$BASH_BIN" "$SCRIPT" https://ok.test 2>&1); then
 fi
 
 [[ "$OUTPUT" == *'[ERROR] Required command not found: curl'* ]] ||
-  fail "Missing curl error missing"
+  fail "Missing curl message incorrect"
 
 echo '[ OK ] http-health-check.sh tests passed'
