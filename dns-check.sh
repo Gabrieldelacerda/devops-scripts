@@ -2,6 +2,7 @@
 
 DNS_TYPE=${DNS_TYPE-A}
 DNS_TIMEOUT=${DNS_TIMEOUT-2}
+DNS_SERVER=${DNS_SERVER-}
 
 if ! [[ "$DNS_TYPE" =~ ^(A|AAAA|CNAME|MX|NS|TXT)$ ]]; then
   echo "[ERROR] DNS_TYPE must be A, AAAA, CNAME, MX, NS or TXT" >&2
@@ -10,6 +11,11 @@ fi
 
 if ! [[ "$DNS_TIMEOUT" =~ ^([1-9]|[12][0-9]|30)$ ]]; then
   echo "[ERROR] DNS_TIMEOUT must be an integer between 1 and 30" >&2
+  exit 1
+fi
+
+if [[ -n "$DNS_SERVER" ]] && { ! [[ "$DNS_SERVER" =~ ^[a-zA-Z0-9][a-zA-Z0-9.:-]*$ ]] || [[ "$DNS_SERVER" == *..* ]]; }; then
+  echo "[ERROR] Invalid DNS_SERVER: $DNS_SERVER" >&2
   exit 1
 fi
 
@@ -48,6 +54,12 @@ valid_domain() {
   return 0
 }
 
+DIG_OPTIONS=("+time=$DNS_TIMEOUT" +tries=1 +short)
+
+if [[ -n "$DNS_SERVER" ]]; then
+  DIG_OPTIONS+=("@$DNS_SERVER")
+fi
+
 FAILED=0
 
 for DOMAIN in "$@"; do
@@ -57,7 +69,7 @@ for DOMAIN in "$@"; do
     continue
   fi
 
-  if RESULT=$(dig "+time=$DNS_TIMEOUT" +tries=1 +short "$DOMAIN" "$DNS_TYPE" 2>/dev/null); then
+  if RESULT=$(dig "${DIG_OPTIONS[@]}" "$DOMAIN" "$DNS_TYPE" 2>/dev/null); then
     if [[ -n "$RESULT" ]]; then
       echo "[FOUND] $DOMAIN $DNS_TYPE"
       printf '%s\n' "$RESULT"
