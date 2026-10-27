@@ -68,7 +68,7 @@ fi
 [[ "$OUTPUT" == "[UNREACHABLE] example.test:81" ]] ||
   fail "Unreachable port message is incorrect"
 
-for INVALID in 0 65536 abc -1 1.5; do
+for INVALID in 0 65536 abc -1 1.5 00000 00000022; do
   : > "$CALLS"
 
   if OUTPUT=$(run_check example.test "$INVALID"); then
@@ -80,6 +80,35 @@ for INVALID in 0 65536 abc -1 1.5; do
 
   [[ ! -s "$CALLS" ]] ||
     fail "Invalid port '$INVALID' was passed to nc"
+done
+
+: > "$CALLS"
+
+OUTPUT=$(run_check example.test 00022 00080) ||
+  fail "Ports with leading zeros should be accepted"
+
+EXPECTED=$'[OPEN] example.test:22\n[OPEN] example.test:80'
+
+[[ "$OUTPUT" == "$EXPECTED" ]] ||
+  fail "Ports with leading zeros were not normalized"
+
+EXPECTED_CALLS=$'-zw2 example.test 22\n-zw2 example.test 80'
+
+[[ "$(cat "$CALLS")" == "$EXPECTED_CALLS" ]] ||
+  fail "Normalized ports were not passed correctly to nc"
+
+for INVALID_HOST in '' '-example.test' 'bad host' 'bad/host'; do
+  : > "$CALLS"
+
+  if OUTPUT=$(run_check "$INVALID_HOST" 22); then
+    fail "Invalid host '$INVALID_HOST' should return failure"
+  fi
+
+  [[ "$OUTPUT" == "[INVALID] Invalid host: $INVALID_HOST" ]] ||
+    fail "Invalid host '$INVALID_HOST' produced incorrect output"
+
+  [[ ! -s "$CALLS" ]] ||
+    fail "Invalid host '$INVALID_HOST' was passed to nc"
 done
 
 : > "$CALLS"
