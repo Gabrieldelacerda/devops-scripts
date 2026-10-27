@@ -41,7 +41,22 @@ for URL in "$@"; do
     fi
   else
     EXIT_CODE=$?
-    echo "[ERROR] Request failed for $URL (curl exit code: $EXIT_CODE)"
+    REASON=""
+
+    case "$EXIT_CODE" in
+      6) REASON="DNS resolution failed" ;;
+      7) REASON="Connection failed" ;;
+      28) REASON="Request timed out" ;;
+      35) REASON="TLS handshake failed" ;;
+      60) REASON="TLS certificate verification failed" ;;
+    esac
+
+    if [[ -n "$REASON" ]]; then
+      echo "[ERROR] Request failed for $URL (curl exit code: $EXIT_CODE: $REASON)"
+    else
+      echo "[ERROR] Request failed for $URL (curl exit code: $EXIT_CODE)"
+    fi
+
     FAILED=1
   fi
 done

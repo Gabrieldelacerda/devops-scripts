@@ -67,7 +67,7 @@ fi
 [[ "$OUTPUT" == *'[ALERT] https://redirect.test returned HTTP 301 (expected 200)'* ]] ||
   fail "Unexpected status not detected"
 
-[[ "$OUTPUT" == *'[ERROR] Request failed for https://offline.test (curl exit code: 28)'* ]] ||
+[[ "$OUTPUT" == *'[ERROR] Request failed for https://offline.test (curl exit code: 28: Request timed out)'* ]] ||
   fail "Request error not detected"
 
 [[ "$OUTPUT" == *'[ALERT] https://created.test returned HTTP 201 (expected 200)'* ]] ||
