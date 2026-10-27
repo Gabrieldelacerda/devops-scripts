@@ -2,6 +2,7 @@
 
 HTTP_EXPECTED_STATUS=${HTTP_EXPECTED_STATUS-200}
 HTTP_TIMEOUT=${HTTP_TIMEOUT-5}
+HTTP_METHOD=${HTTP_METHOD-GET}
 
 if [[ ! "$HTTP_EXPECTED_STATUS" =~ ^[1-5][0-9]{2}$ ]]; then
   echo "[ERROR] HTTP_EXPECTED_STATUS must be a valid HTTP status code" >&2
@@ -10,6 +11,11 @@ fi
 
 if [[ ! "$HTTP_TIMEOUT" =~ ^([1-9]|[12][0-9]|30)$ ]]; then
   echo "[ERROR] HTTP_TIMEOUT must be an integer between 1 and 30" >&2
+  exit 1
+fi
+
+if [[ "$HTTP_METHOD" != "GET" && "$HTTP_METHOD" != "HEAD" ]]; then
+  echo "[ERROR] HTTP_METHOD must be GET or HEAD" >&2
   exit 1
 fi
 
@@ -23,6 +29,12 @@ if ! command -v curl >/dev/null 2>&1; then
   exit 1
 fi
 
+CURL_OPTIONS=(--silent --output /dev/null --write-out '%{http_code}' --max-time "$HTTP_TIMEOUT")
+
+if [[ "$HTTP_METHOD" == "HEAD" ]]; then
+  CURL_OPTIONS+=(--head)
+fi
+
 FAILED=0
 
 for URL in "$@"; do
@@ -32,7 +44,7 @@ for URL in "$@"; do
     continue
   fi
 
-  if STATUS=$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time "$HTTP_TIMEOUT" -- "$URL"); then
+  if STATUS=$(curl "${CURL_OPTIONS[@]}" -- "$URL"); then
     if [[ "$STATUS" == "$HTTP_EXPECTED_STATUS" ]]; then
       echo "[ OK ] $URL returned HTTP $STATUS"
     else
