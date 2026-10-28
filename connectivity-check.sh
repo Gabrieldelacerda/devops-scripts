@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
 
 PING_TIMEOUT=${PING_TIMEOUT-2}
+PING_COUNT=${PING_COUNT-1}
 
 if ! [[ "$PING_TIMEOUT" =~ ^([1-9]|[12][0-9]|30)$ ]]; then
   echo "[ERROR] PING_TIMEOUT must be an integer between 1 and 30" >&2
+  exit 1
+fi
+
+if ! [[ "$PING_COUNT" =~ ^[1-5]$ ]]; then
+  echo "[ERROR] PING_COUNT must be an integer between 1 and 5" >&2
   exit 1
 fi
 
@@ -27,7 +33,7 @@ for HOST in "${HOSTS[@]}"; do
     continue
   fi
 
-  if PING_OUTPUT=$(ping -c 1 -W "$PING_TIMEOUT" "$HOST" 2>&1); then
+  if PING_OUTPUT=$(ping -c "$PING_COUNT" -W "$PING_TIMEOUT" "$HOST" 2>&1); then
     echo "[REACHABLE] $HOST"
   else
     STATUS=$?
