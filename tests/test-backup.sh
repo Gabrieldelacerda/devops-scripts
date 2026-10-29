@@ -59,10 +59,10 @@ fi
 MOCK_MKDIR="$TEST_DIR/mock-mkdir"
 mkdir -p "$MOCK_MKDIR"
 
-cat > "$MOCK_MKDIR/mkdir" <<'EOF'
+cat > "$MOCK_MKDIR/mkdir" <<'MOCK'
 #!/usr/bin/env bash
 exit 1
-EOF
+MOCK
 
 chmod +x "$MOCK_MKDIR/mkdir"
 
@@ -77,10 +77,10 @@ fi
 MOCK_MKTEMP="$TEST_DIR/mock-mktemp"
 mkdir -p "$MOCK_MKTEMP"
 
-cat > "$MOCK_MKTEMP/mktemp" <<'EOF'
+cat > "$MOCK_MKTEMP/mktemp" <<'MOCK'
 #!/usr/bin/env bash
 exit 1
-EOF
+MOCK
 
 chmod +x "$MOCK_MKTEMP/mktemp"
 
@@ -95,11 +95,11 @@ fi
 MOCK_TAR="$TEST_DIR/mock-tar"
 mkdir -p "$MOCK_TAR"
 
-cat > "$MOCK_TAR/tar" <<'EOF'
+cat > "$MOCK_TAR/tar" <<'MOCK'
 #!/usr/bin/env bash
 printf 'incomplete backup' > "$2"
 exit 1
-EOF
+MOCK
 
 chmod +x "$MOCK_TAR/tar"
 
@@ -118,13 +118,45 @@ if find "$FAILED_DEST" -maxdepth 1 -type f \
   fail "Incomplete backup was not removed"
 fi
 
+MOCK_CORRUPT_TAR="$TEST_DIR/mock-corrupt-tar"
+mkdir -p "$MOCK_CORRUPT_TAR"
+
+cat > "$MOCK_CORRUPT_TAR/tar" <<'MOCK'
+#!/usr/bin/env bash
+
+if [[ "$1" == '-czf' ]]; then
+  printf 'invalid archive\n' > "$2"
+  exit 0
+fi
+
+exec "$REAL_TAR" "$@"
+MOCK
+
+chmod +x "$MOCK_CORRUPT_TAR/tar"
+
+CORRUPT_DEST="$TEST_DIR/corrupt-backups"
+REAL_TAR=$(command -v tar)
+
+if OUTPUT=$(REAL_TAR="$REAL_TAR" PATH="$MOCK_CORRUPT_TAR:$PATH" \
+  bash "$SCRIPT" "$SOURCE" "$CORRUPT_DEST" 2>&1); then
+  fail "Corrupted archive should not be reported as successful"
+fi
+
+[[ "$OUTPUT" == *"[ERROR] Backup verification failed for"* ]] ||
+  fail "Expected backup verification error"
+
+if find "$CORRUPT_DEST" -maxdepth 1 -type f \
+  -name 'backup_*.tar.gz' | grep -q .; then
+  fail "Corrupted archive was not removed"
+fi
+
 MOCK_DATE="$TEST_DIR/mock-date"
 mkdir -p "$MOCK_DATE"
 
-cat > "$MOCK_DATE/date" <<'EOF'
+cat > "$MOCK_DATE/date" <<'MOCK'
 #!/usr/bin/env bash
 printf '%s\n' '20261020_120000'
-EOF
+MOCK
 
 chmod +x "$MOCK_DATE/date"
 

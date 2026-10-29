@@ -19,10 +19,16 @@ if ! BACKUP_FILE=$(mktemp "$DEST/backup_${TIMESTAMP}_XXXXXX.tar.gz"); then
   exit 1
 fi
 
-if tar -czf "$BACKUP_FILE" "$SOURCE"; then
-  echo "[ OK ] Backup saved to $BACKUP_FILE"
-else
+if ! tar -czf "$BACKUP_FILE" "$SOURCE"; then
   echo "[ERROR] Backup failed for $SOURCE"
   rm -f -- "$BACKUP_FILE"
   exit 1
 fi
+
+if ! tar -tzf "$BACKUP_FILE" >/dev/null 2>&1; then
+  echo "[ERROR] Backup verification failed for $SOURCE"
+  rm -f -- "$BACKUP_FILE"
+  exit 1
+fi
+
+echo "[ OK ] Backup saved to $BACKUP_FILE"
