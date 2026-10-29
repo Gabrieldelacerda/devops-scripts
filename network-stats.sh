@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 
+ROUTE_TARGET=${ROUTE_TARGET-}
+
+if [[ -n "$ROUTE_TARGET" ]] && [[ "$ROUTE_TARGET" == -* || "$ROUTE_TARGET" =~ [[:space:]/] ]]; then
+  echo "[ERROR] Invalid ROUTE_TARGET: $ROUTE_TARGET"
+  exit 1
+fi
+
 for CMD in ip ss awk; do
   if ! command -v "$CMD" >/dev/null 2>&1; then
     echo "[ERROR] Required command not found: $CMD"
@@ -33,6 +40,23 @@ if [[ -z "$ROUTE_OUTPUT" ]]; then
   echo "[INFO] No routes reported"
 else
   printf '%s\n' "$ROUTE_OUTPUT"
+fi
+
+if [[ -n "$ROUTE_TARGET" ]]; then
+  echo ""
+  echo "Route to $ROUTE_TARGET:"
+
+  if ! TARGET_ROUTE_OUTPUT=$(ip route get "$ROUTE_TARGET"); then
+    echo "[ERROR] Failed to find route to $ROUTE_TARGET"
+    exit 1
+  fi
+
+  if [[ -z "$TARGET_ROUTE_OUTPUT" ]]; then
+    echo "[ERROR] Route lookup returned no data for $ROUTE_TARGET"
+    exit 1
+  fi
+
+  printf '%s\n' "$TARGET_ROUTE_OUTPUT"
 fi
 
 echo ""
