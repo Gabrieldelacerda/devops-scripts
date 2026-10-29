@@ -8,11 +8,29 @@ TEST_DIR="$(mktemp -d)"
 trap 'rm -rf -- "$TEST_DIR"' EXIT
 
 CALLS="$TEST_DIR/ps-calls.log"
+GETENT_CALLS="$TEST_DIR/getent-calls.log"
 
 fail() {
   echo "[FAIL] $1"
   exit 1
 }
+
+cat > "$TEST_DIR/getent" <<'MOCK'
+#!/usr/bin/env bash
+
+printf '%s\n' "$*" >> "$MOCK_GETENT_CALLS"
+
+[[ "$#" -eq 2 && "$1" == passwd ]] || exit 2
+
+case "$2" in
+  worker|1001)
+    printf '%s\n' 'worker:x:1001:1001::/home/worker:/bin/bash'
+    ;;
+  *)
+    exit 2
+    ;;
+esac
+MOCK
 
 cat > "$TEST_DIR/ps" <<'MOCK'
 #!/usr/bin/env bash
@@ -54,6 +72,10 @@ if [[ "${MOCK_PS_OUTPUT:-}" == "$TYPE-header" ]]; then
   exit 0
 fi
 
+if [[ "$FILTER" != all && "${MOCK_NO_PROCESSES:-0}" == 1 ]]; then
+  exit 1
+fi
+
 if [[ "$FILTER" == all ]]; then
   if [[ "$TYPE" == cpu ]]; then
     printf '%s\n' \
@@ -77,10 +99,11 @@ else
 fi
 MOCK
 
-chmod +x "$TEST_DIR/ps"
+chmod +x "$TEST_DIR/ps" "$TEST_DIR/getent"
 
 run_check() {
-  PATH="$TEST_DIR:$PATH" MOCK_PS_CALLS="$CALLS" bash "$SCRIPT" "$@"
+  PATH="$TEST_DIR:$PATH" MOCK_PS_CALLS="$CALLS" MOCK_GETENT_CALLS="$GETENT_CALLS" \
+    bash "$SCRIPT" "$@"
 }
 
 OUTPUT=$(run_check 1) || fail "Valid process limit should succeed"
@@ -131,6 +154,7 @@ OUTPUT=$(run_check) ||
   fail "Default limit should be 5"
 
 : > "$CALLS"
+: > "$GETENT_CALLS"
 
 OUTPUT=$(PROCESS_USER=worker run_check 1) ||
   fail "Filtering processes by user should succeed"
@@ -152,6 +176,9 @@ EXPECTED_OUTPUT
 [[ "$(cat "$CALLS")" == $'-u worker -o user,pid,%cpu,%mem,comm --sort=-%cpu\n-u worker -o user,pid,%cpu,%mem,comm --sort=-%mem' ]] ||
   fail "User filter was not passed correctly to ps"
 
+[[ "$(cat "$GETENT_CALLS")" == 'passwd worker' ]] ||
+  fail "Filtered user was not checked with getent"
+
 : > "$CALLS"
 
 OUTPUT=$(PROCESS_USER=1001 run_check 1) ||
@@ -163,8 +190,12 @@ OUTPUT=$(PROCESS_USER=1001 run_check 1) ||
 [[ "$(head -n 1 "$CALLS")" == '-u 1001 -o user,pid,%cpu,%mem,comm --sort=-%cpu' ]] ||
   fail "Numeric UID was not passed correctly to ps"
 
+[[ "$(cat "$GETENT_CALLS")" == 'passwd worker' ]] ||
+  fail "Numeric UID should not require a passwd entry"
+
 for INVALID_USER in '-root' 'bad user' 'bad/user' 'root;id'; do
   : > "$CALLS"
+  : > "$GETENT_CALLS"
 
   if OUTPUT=$(PROCESS_USER="$INVALID_USER" run_check 1 2>&1); then
     fail "Invalid PROCESS_USER '$INVALID_USER' should fail"
@@ -173,12 +204,35 @@ for INVALID_USER in '-root' 'bad user' 'bad/user' 'root;id'; do
   [[ "$OUTPUT" == "[ERROR] Invalid PROCESS_USER: $INVALID_USER" ]] ||
     fail "Invalid PROCESS_USER error is incorrect"
 
-  [[ ! -s "$CALLS" ]] ||
-    fail "Invalid PROCESS_USER must not invoke ps"
+  [[ ! -s "$CALLS" && ! -s "$GETENT_CALLS" ]] ||
+    fail "Invalid PROCESS_USER must not invoke external commands"
 done
 
+: > "$CALLS"
+
+if OUTPUT=$(PROCESS_USER=missinguser run_check 1 2>&1); then
+  fail "Unknown user should fail"
+fi
+
+[[ "$OUTPUT" == '[ERROR] User not found: missinguser' ]] ||
+  fail "Unknown user should be reported clearly"
+
+[[ ! -s "$CALLS" ]] ||
+  fail "Unknown user must not invoke ps"
+
+: > "$CALLS"
+
+OUTPUT=$(PROCESS_USER=worker MOCK_NO_PROCESSES=1 run_check 1) ||
+  fail "Existing user without processes should not fail"
+
+[[ "$OUTPUT" == '[INFO] No running processes found for user worker' ]] ||
+  fail "No-process condition should be reported once"
+
+[[ "$(cat "$CALLS")" == '-u worker -o user,pid,%cpu,%mem,comm --sort=-%cpu' ]] ||
+  fail "No-process condition should skip the memory query"
+
 for FAILURE in cpu memory; do
-  if OUTPUT=$(PATH="$TEST_DIR:$PATH" MOCK_PS_CALLS="$CALLS" MOCK_PS_FAILURE="$FAILURE" bash "$SCRIPT" 1 2>&1); then
+  if OUTPUT=$(MOCK_PS_FAILURE="$FAILURE" run_check 1 2>&1); then
     fail "A failed $FAILURE query should return an error"
   fi
 
@@ -200,7 +254,7 @@ for TYPE in cpu memory; do
   fi
 
   for MODE in empty header; do
-    if OUTPUT=$(PATH="$TEST_DIR:$PATH" MOCK_PS_CALLS="$CALLS" MOCK_PS_OUTPUT="$TYPE-$MODE" bash "$SCRIPT" 1 2>&1); then
+    if OUTPUT=$(MOCK_PS_OUTPUT="$TYPE-$MODE" run_check 1 2>&1); then
       fail "$TYPE $MODE output should return an error"
     fi
 
@@ -209,11 +263,10 @@ for TYPE in cpu memory; do
   done
 done
 
-if OUTPUT=$(PROCESS_USER=worker MOCK_PS_OUTPUT=cpu-header run_check 1 2>&1); then
-  fail "Filtered output without processes should fail"
-fi
+OUTPUT=$(PROCESS_USER=worker MOCK_PS_OUTPUT=cpu-header run_check 1) ||
+  fail "Filtered output without processes should not fail"
 
-[[ "$OUTPUT" == *'[ERROR] No process data returned for CPU usage'* ]] ||
+[[ "$OUTPUT" == '[INFO] No running processes found for user worker' ]] ||
   fail "Empty filtered process result was not detected"
 
 echo "[ OK ] process-monitor.sh tests passed"
