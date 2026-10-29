@@ -40,21 +40,55 @@ cat > "$MOCK_DIR/openssl" <<'MOCK'
 
 case "$1" in
   s_client)
-    if [[ "$3" == "missing.test:443" ]]; then
+    shift
+    CONNECT=""
+    SERVERNAME=""
+    VERIFY_HOSTNAME=""
+    VERIFY_RETURN_ERROR=0
+
+    while [[ "$#" -gt 0 ]]; do
+      case "$1" in
+        -connect)
+          CONNECT="$2"
+          shift 2
+          ;;
+        -servername)
+          SERVERNAME="$2"
+          shift 2
+          ;;
+        -verify_hostname)
+          VERIFY_HOSTNAME="$2"
+          shift 2
+          ;;
+        -verify_return_error)
+          VERIFY_RETURN_ERROR=1
+          shift
+          ;;
+        *)
+          exit 9
+          ;;
+      esac
+    done
+
+    [[ "$VERIFY_RETURN_ERROR" == 1 && "$CONNECT" == "$SERVERNAME:443" && "$VERIFY_HOSTNAME" == "$SERVERNAME" ]] || exit 9
+
+    if [[ "$CONNECT" == "missing.test:443" ]]; then
       exit 1
     fi
 
-    printf '%s\n' "$3"
+    printf '%s\n' "$CONNECT"
 
-    if [[ "$3" == "handshake.test:443" ]]; then
-      exit 1
-    fi
+    case "$CONNECT" in
+      handshake.test:443|untrusted.test:443|wrongname.test:443)
+        exit 1
+        ;;
+    esac
     ;;
   x509)
     read -r DOMAIN || exit 1
 
     case "$DOMAIN" in
-      healthy.test:443|handshake.test:443)
+      healthy.test:443|handshake.test:443|untrusted.test:443|wrongname.test:443)
         EXPIRY=$(date -u -d '+120 days' '+%b %d %H:%M:%S %Y GMT')
         ;;
       expiring.test:443)
@@ -94,30 +128,27 @@ if OUTPUT=$(run_check expiring.test); then
 fi
 [[ "$OUTPUT" == "[ALERT] expiring.test certificate expires in "* ]] || fail "Expiration alert missing"
 
-if OUTPUT=$(run_check missing.test); then
-  fail "Missing certificate should fail"
-fi
-[[ "$OUTPUT" == "[ERROR] Could not retrieve certificate for missing.test" ]] || fail "Missing certificate error incorrect"
+for DOMAIN in missing.test handshake.test untrusted.test wrongname.test; do
+  if OUTPUT=$(run_check "$DOMAIN"); then
+    fail "$DOMAIN should fail TLS verification or connection"
+  fi
+  [[ "$OUTPUT" == "[ERROR] TLS connection or certificate verification failed for $DOMAIN" ]] || fail "$DOMAIN failure not reported"
+done
 
 if OUTPUT=$(run_check invalid.test); then
   fail "Invalid expiry should fail"
 fi
 [[ "$OUTPUT" == "[ERROR] Could not parse certificate expiry for invalid.test" ]] || fail "Invalid expiry error incorrect"
 
-if OUTPUT=$(run_check healthy.test missing.test); then
+if OUTPUT=$(run_check healthy.test untrusted.test); then
   fail "Mixed certificates should fail"
 fi
-[[ "$OUTPUT" == *"[ OK ] healthy.test"* && "$OUTPUT" == *"[ERROR] Could not retrieve certificate for missing.test"* ]] || fail "Mixed results incomplete"
-
-if OUTPUT=$(run_check handshake.test); then
-  fail "Failed TLS handshake should fail even with certificate data"
-fi
-[[ "$OUTPUT" == "[ERROR] Could not retrieve certificate for handshake.test" ]] || fail "TLS handshake error incorrect"
+[[ "$OUTPUT" == *"[ OK ] healthy.test"* && "$OUTPUT" == *"[ERROR] TLS connection or certificate verification failed for untrusted.test"* ]] || fail "Mixed results incomplete"
 
 if OUTPUT=$(MOCK_TIMEOUT_FAILURE=1 run_check healthy.test); then
   fail "Timed-out TLS connection should fail"
 fi
-[[ "$OUTPUT" == "[ERROR] Could not retrieve certificate for healthy.test" ]] || fail "Timeout failure not reported"
+[[ "$OUTPUT" == "[ERROR] TLS connection or certificate verification failed for healthy.test" ]] || fail "Timeout failure not reported"
 
 : > "$TIMEOUT_CALLS"
 for INVALID in '' 0 -1 abc 31 05; do

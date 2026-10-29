@@ -31,8 +31,10 @@ for DOMAIN in "${DOMAINS[@]}"; do
   if ! CERT_INFO=$(printf '\n' | timeout "$TLS_TIMEOUT" openssl s_client \
     -connect "$DOMAIN:443" \
     -servername "$DOMAIN" \
+    -verify_hostname "$DOMAIN" \
+    -verify_return_error \
     2>/dev/null | openssl x509 -noout -enddate 2>/dev/null); then
-    echo "[ERROR] Could not retrieve certificate for $DOMAIN"
+    echo "[ERROR] TLS connection or certificate verification failed for $DOMAIN"
     FAILED=1
     continue
   fi
