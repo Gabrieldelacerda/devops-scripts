@@ -20,7 +20,13 @@ cat > "$MOCK_DIR/df" <<'MOCK'
 
 printf '%s\n' "$*" >> "$MOCK_DF_CALLS"
 
-[[ "$#" -eq 2 && "$1" == '-h' && "$2" == '--output=pcent,target' ]] || exit 2
+if [[ "$#" -eq 2 && "$1" == '-h' && "$2" == '--output=pcent,target' ]]; then
+  MODE=disk
+elif [[ "$#" -eq 1 && "$1" == '--output=ipcent,target' ]]; then
+  MODE=inode
+else
+  exit 2
+fi
 
 if [[ "${MOCK_DF_FAIL:-0}" == '1' ]]; then
   exit 2
@@ -28,6 +34,7 @@ fi
 
 case "${MOCK_DF_CASE:-normal}" in
   normal)
+    [[ "$MODE" == disk ]] || exit 2
     printf 'Use%% Mounted on\n25%% /test-root\n90%% /test-data\n'
     ;;
   multiple)
@@ -50,6 +57,22 @@ case "${MOCK_DF_CASE:-normal}" in
     ;;
   empty)
     exit 0
+    ;;
+  inode-normal)
+    [[ "$MODE" == inode ]] || exit 2
+    printf 'IUse%% Mounted on\n25%% /test-root\n90%% /test-data\n'
+    ;;
+  inode-unavailable)
+    [[ "$MODE" == inode ]] || exit 2
+    printf 'IUse%% Mounted on\n- /virtual\n30%% /test-root\n'
+    ;;
+  inode-no-data)
+    [[ "$MODE" == inode ]] || exit 2
+    printf 'IUse%% Mounted on\n- /virtual\n'
+    ;;
+  inode-malformed)
+    [[ "$MODE" == inode ]] || exit 2
+    printf 'IUse%% Mounted on\n25%% /test-root\ninvalid /test-data\n'
     ;;
   *)
     exit 2
@@ -154,5 +177,66 @@ done
 
 [[ "$(tail -n 1 "$CALLS")" == '-h --output=pcent,target' ]] ||
   fail "Unexpected df arguments"
+
+OUTPUT=$(CHECK_INODES=1 run_check 95 inode-normal) ||
+  fail "Healthy inode usage should pass"
+
+EXPECTED=$'[ OK ]  /test-root inode usage is at 25%\n[ OK ]  /test-data inode usage is at 90%'
+
+[[ "$OUTPUT" == "$EXPECTED" ]] ||
+  fail "Healthy inode status is incorrect"
+
+[[ "$(tail -n 1 "$CALLS")" == '--output=ipcent,target' ]] ||
+  fail "Inode mode did not use the correct df arguments"
+
+if OUTPUT=$(CHECK_INODES=1 run_check 90 inode-normal); then
+  fail "Inode usage equal to threshold must trigger an alert"
+fi
+
+[[ "$OUTPUT" == *'[ALERT] /test-data inode usage is at 90%'* ]] ||
+  fail "High inode usage alert was missed"
+
+OUTPUT=$(CHECK_INODES=1 run_check 80 inode-unavailable) ||
+  fail "Unavailable inode usage should not fail when other data exists"
+
+EXPECTED=$'[SKIP] /virtual inode usage unavailable\n[ OK ]  /test-root inode usage is at 30%'
+
+[[ "$OUTPUT" == "$EXPECTED" ]] ||
+  fail "Unavailable inode usage handling is incorrect"
+
+if OUTPUT=$(CHECK_INODES=1 run_check 80 inode-no-data); then
+  fail "Inode report without usable data must fail"
+fi
+
+[[ "$OUTPUT" == *'[ERROR] No filesystem inode usage data found'* ]] ||
+  fail "Missing inode data was not reported"
+
+if OUTPUT=$(CHECK_INODES=1 run_check 80 inode-malformed); then
+  fail "Malformed inode usage must fail"
+fi
+
+[[ "$OUTPUT" == *'[ERROR] Invalid inode usage data:'* ]] ||
+  fail "Malformed inode usage was not reported"
+
+if OUTPUT=$(CHECK_INODES=1 run_check 80 inode-normal 1); then
+  fail "Failed inode query must fail"
+fi
+
+[[ "$OUTPUT" == '[ERROR] Failed to retrieve inode usage' ]] ||
+  fail "Failed inode query was not reported"
+
+for INVALID in yes 2 -1; do
+  : > "$CALLS"
+
+  if OUTPUT=$(CHECK_INODES="$INVALID" run_check 80 2>&1); then
+    fail "Invalid CHECK_INODES value '$INVALID' should fail"
+  fi
+
+  [[ "$OUTPUT" == '[ERROR] CHECK_INODES must be 0 or 1' ]] ||
+    fail "Invalid CHECK_INODES error is incorrect"
+
+  [[ ! -s "$CALLS" ]] ||
+    fail "Invalid CHECK_INODES value reached df"
+done
 
 echo '[ OK ] disk-check.sh tests passed'
