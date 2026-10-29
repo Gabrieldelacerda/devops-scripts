@@ -21,14 +21,21 @@ fail() {
 cat > "$MOCK_DIR/nc" <<'EOF'
 #!/usr/bin/env bash
 
-printf '%s %s %s\n' "$1" "$2" "$3" >> "$MOCK_NC_LOG"
+printf '%s\n' "$*" >> "$MOCK_NC_LOG"
 
-if [[ "$#" -ne 3 || "$1" != "-zw${MOCK_EXPECTED_TIMEOUT:-2}" ]]; then
+if [[ "$1" == -4 || "$1" == -6 ]]; then
+  FAMILY="${1#-}"
+  shift
+else
+  FAMILY=auto
+fi
+
+if [[ "$#" -ne 3 || "$1" != "-zw${MOCK_EXPECTED_TIMEOUT:-2}" || "$FAMILY" != "${MOCK_EXPECTED_FAMILY:-auto}" ]]; then
   exit 2
 fi
 
 case "$2" in
-  example.test|localhost) ;;
+  example.test|localhost|198.51.100.10|2001:db8::1) ;;
   *) exit 2 ;;
 esac
 
@@ -160,6 +167,42 @@ for INVALID in 0 31 abc -1 1.5 02; do
 
   [[ ! -s "$CALLS" ]] ||
     fail "Invalid timeout '$INVALID' reached nc"
+done
+
+: > "$CALLS"
+
+OUTPUT=$(CONNECT_FAMILY=4 MOCK_EXPECTED_FAMILY=4 run_check 198.51.100.10 443) ||
+  fail "IPv4-only check should succeed"
+
+[[ "$OUTPUT" == "[OPEN] 198.51.100.10:443" ]] ||
+  fail "IPv4-only check output is incorrect"
+
+[[ "$(cat "$CALLS")" == "-4 -zw2 198.51.100.10 443" ]] ||
+  fail "IPv4 selection was not passed to nc"
+
+: > "$CALLS"
+
+OUTPUT=$(CONNECT_FAMILY=6 MOCK_EXPECTED_FAMILY=6 run_check 2001:db8::1 443) ||
+  fail "IPv6-only check should succeed"
+
+[[ "$OUTPUT" == "[OPEN] 2001:db8::1:443" ]] ||
+  fail "IPv6-only check output is incorrect"
+
+[[ "$(cat "$CALLS")" == "-6 -zw2 2001:db8::1 443" ]] ||
+  fail "IPv6 selection was not passed to nc"
+
+for INVALID in '' 0 5 ipv4 -4; do
+  : > "$CALLS"
+
+  if OUTPUT=$(CONNECT_FAMILY="$INVALID" run_check example.test 443 2>&1); then
+    fail "Invalid address family '$INVALID' should fail"
+  fi
+
+  [[ "$OUTPUT" == "[ERROR] CONNECT_FAMILY must be auto, 4, or 6" ]] ||
+    fail "Invalid address family '$INVALID' produced incorrect output"
+
+  [[ ! -s "$CALLS" ]] ||
+    fail "Invalid address family '$INVALID' reached nc"
 done
 
 if OUTPUT=$(PATH="$EMPTY_DIR" "$BASH_BIN" "$SCRIPT" example.test 22 2>&1); then

@@ -2,11 +2,20 @@
 
 HOST="${1-localhost}"
 CONNECT_TIMEOUT="${CONNECT_TIMEOUT:-2}"
+CONNECT_FAMILY="${CONNECT_FAMILY-auto}"
 
 if ! [[ "$CONNECT_TIMEOUT" =~ ^([1-9]|[12][0-9]|30)$ ]]; then
   echo "[ERROR] CONNECT_TIMEOUT must be an integer between 1 and 30 seconds"
   exit 1
 fi
+
+case "$CONNECT_FAMILY" in
+  auto|4|6) ;;
+  *)
+    echo "[ERROR] CONNECT_FAMILY must be auto, 4, or 6"
+    exit 1
+    ;;
+esac
 
 if [[ -z "$HOST" || "$HOST" == -* || "$HOST" =~ [[:space:]/] ]]; then
   echo "[INVALID] Invalid host: $HOST"
@@ -23,6 +32,13 @@ if [ "$#" -gt 1 ]; then
 else
   PORTS=(22 80 443 3306)
 fi
+
+NC_ARGS=("-zw${CONNECT_TIMEOUT}")
+
+case "$CONNECT_FAMILY" in
+  4) NC_ARGS=(-4 "${NC_ARGS[@]}") ;;
+  6) NC_ARGS=(-6 "${NC_ARGS[@]}") ;;
+esac
 
 FAILED=0
 
@@ -41,7 +57,7 @@ for PORT in "${PORTS[@]}"; do
     continue
   fi
 
-  if nc "-zw${CONNECT_TIMEOUT}" "$HOST" "$PORT_NUMBER" 2>/dev/null; then
+  if nc "${NC_ARGS[@]}" "$HOST" "$PORT_NUMBER" 2>/dev/null; then
     echo "[OPEN] $HOST:$PORT_NUMBER"
   else
     echo "[UNREACHABLE] $HOST:$PORT_NUMBER"
